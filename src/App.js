@@ -311,13 +311,27 @@ function preferDiet(d, dietKey){
   
   // Google Sheets compatibility: check both diet array and type field
   if (dietKey==='veg') {
-    const name = (d.name || '').toLowerCase();
-    const desc = (d.description || '').toLowerCase();
-    const isVeg = ds.includes('veg') || ds.includes('v') || ds.includes('vega') || 
-                 type === 'vega' || type === 'vegetarisch' ||
-                 name.includes('vegetarisch') || name.includes('vega') ||
-                 desc.includes('vegetarisch') || desc.includes('vega');
-    return isVeg;
+    const category = (d.category || '').toLowerCase();
+    
+    // EXCLUDE LUNCH CATEGORY (tijdelijke items)
+    if (category === 'lunch') {
+      console.log('🥬❌ LUNCH excluded:', d.name);
+      return false;
+    }
+    
+    // SIMPEL: Check kolom F (type) voor "vega" of kolom H (diet) voor "veg"/"vega"
+    const isVega = type === 'vega' || type === 'vegetarisch' || 
+                   ds.includes('veg') || ds.includes('v') || ds.includes('vega') || ds.includes('vegetarisch');
+    
+    console.log('🥬 Veg check:', d.name, {
+      type: type,
+      diet: ds,
+      category: category,
+      isVega: isVega,
+      result: isVega ? '✅ ACCEPTED' : '❌ REJECTED'
+    });
+    
+    return isVega;
   } 
   if (dietKey==='vegan') return ds.includes('vegan') || ds.includes('vega') || (d.tags||[]).includes('vegan') || (d.tags||[]).includes('vega');
   if (dietKey==='glutfree') {
@@ -381,6 +395,15 @@ function gpt5RankDishes({ user, context, dishes }){
     
     // Base score for all dishes
     s += 1;
+    
+    // SPECIAL: For vegetarians, always prioritize "Vegetarische hap"
+    if (user.diet === 'veg') {
+      const name = (d.name || '').toLowerCase();
+      if (name.includes('vegetarische hap') || name.includes('vegetarian dish')) {
+        s += 100; // Very high score to ensure it's always first
+        console.log('🥬 VEGETARISCHE HAP BOOST for:', d.name);
+      }
+    }
     
     // Diet preference scoring
     if (dietMatch) {
