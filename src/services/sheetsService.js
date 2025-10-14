@@ -36,34 +36,34 @@ async function fetchSheetData(sheetName) {
     // Parse CSV to array - improved parser for multi-line cells
     const rows = [];
     let currentRow = [];
-    let current = '';
-    let inQuotes = false;
+  let current = '';
+  let inQuotes = false;
     let quoteCount = 0;
-    
+  
     for (let i = 0; i < csvText.length; i++) {
       const char = csvText[i];
-      
-      if (char === '"') {
+    
+    if (char === '"') {
         quoteCount++;
         if (quoteCount % 2 === 1) {
           inQuotes = true;
-        } else {
+      } else {
           inQuotes = false;
-        }
+      }
         current += char;
-      } else if (char === ',' && !inQuotes) {
+    } else if (char === ',' && !inQuotes) {
         currentRow.push(current.trim().replace(/^"|"$/g, ''));
         current = '';
       } else if (char === '\n' && !inQuotes) {
         currentRow.push(current.trim().replace(/^"|"$/g, ''));
         rows.push(currentRow);
         currentRow = [];
-        current = '';
-      } else {
-        current += char;
-      }
+      current = '';
+    } else {
+      current += char;
     }
-    
+  }
+  
     // Add last row
     if (currentRow.length > 0 || current.trim()) {
       currentRow.push(current.trim().replace(/^"|"$/g, ''));
@@ -231,11 +231,11 @@ async function getWeekmenuData() {
       })
       .filter(item => item && item.active && item.is_week);
     
-    weekmenuCache.data = weekmenuItems;
-    weekmenuCache.timestamp = Date.now();
+      weekmenuCache.data = weekmenuItems;
+      weekmenuCache.timestamp = Date.now();
     console.log('📊 Updated weekmenu cache with Sheets data:', weekmenuItems.length, 'items');
     console.log('📊 First weekmenu item with translations:', weekmenuItems[0]);
-    return weekmenuItems;
+      return weekmenuItems;
   } catch (error) {
     console.error('Error fetching weekmenu data:', error);
     return weekmenuCache.data || [];
@@ -359,41 +359,41 @@ async function generateAIPairings(dish, user, lang = 'nl', pairingData = []) {
     pairing.dish_id === dish.id && pairing.active
   );
   
-  const pairings = [];
-  
-  for (const pairing of matchingPairings) {
-    const isTasteMatch = pairing.match_tags.some(tag => {
+    const pairings = [];
+    
+    for (const pairing of matchingPairings) {
+      const isTasteMatch = pairing.match_tags.some(tag => {
       const userTaste = user.taste ? user.taste.toLowerCase() : '';
       return userTaste.includes(tag.toLowerCase()) || pairing.match_tags.length === 0;
     });
     
     if (isTasteMatch) {
       let price = 5.95;
-      const priceMatch = pairing.suggestion.match(/\+€?([\d,]+)/);
-      if (priceMatch) {
-        price = parseFloat(priceMatch[1].replace(',', '.'));
-      }
-      
+        const priceMatch = pairing.suggestion.match(/\+€?([\d,]+)/);
+        if (priceMatch) {
+          price = parseFloat(priceMatch[1].replace(',', '.'));
+        }
+        
       const nameWithoutPrice = pairing.suggestion.replace(/\s*\+€?[\d,\.]+.*$/, '');
       const nameWithoutPrice_en = (pairing.suggestion_en || pairing.suggestion).replace(/\s*\+€?[\d,\.]+.*$/, '');
-      
-      pairings.push({
-        dish_id: dish.id,
-        kind: pairing.kind,
+        
+        pairings.push({
+          dish_id: dish.id,
+          kind: pairing.kind,
         name: nameWithoutPrice, // Dutch name (without price)
         name_en: nameWithoutPrice_en, // English name (without price)
         suggestion: pairing.suggestion, // Dutch suggestion (with price, e.g. "Glas Merlot + €5,95")
         suggestion_en: pairing.suggestion_en || pairing.suggestion, // English suggestion (with price)
-        price: price,
+          price: price,
         description: pairing.description || '', // Dutch description from Sheets
         description_en: pairing.description_en || '', // English description from Sheets
-        match_tags: pairing.match_tags,
+          match_tags: pairing.match_tags,
         upsell_id: `pairing_${pairing.kind}_${dish.id}`,
-        priority: pairing.priority
-      });
+          priority: pairing.priority
+        });
+      }
     }
-  }
-  
+    
   return pairings.slice(0, 2);
 }
 
@@ -447,7 +447,7 @@ async function saveAIDescriptionToSheet(dish_id, suggestion, aiDescription, lang
     if (pairingIndex !== -1) {
       if (lang === 'nl') {
         pairingCache.data[pairingIndex].ai_description_nl = aiDescription;
-      } else {
+    } else {
         pairingCache.data[pairingIndex].ai_description_en = aiDescription;
       }
       console.log(`💾 [CACHE] Updated pairing cache for ${dish_id}`);
@@ -499,6 +499,86 @@ async function getAllSheetsData() {
   }
 }
 
+/**
+ * Get SmartBubbles data from Google Sheets
+ * Fetches real menu items for upsell suggestions
+ */
+async function getSmartBubblesData() {
+  try {
+    // Use CSV export for SmartBubbles sheet (same as other sheets)
+    const url = `https://docs.google.com/spreadsheets/d/${SHEETS_CONFIG.spreadsheetId}/gviz/tq?tqx=out:csv&sheet=SmartBubbles`;
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      console.log('🎯 SmartBubbles sheet does not exist yet, returning empty array');
+      return [];
+    }
+    
+    // Parse CSV data
+    const csvText = await response.text();
+    console.log('🎯 SmartBubbles raw CSV:', csvText.substring(0, 200));
+    
+    const rows = csvText.split('\n').map(row => {
+      // Simple CSV parser (handles quoted values)
+      const values = [];
+      let current = '';
+      let inQuotes = false;
+      
+      for (let i = 0; i < row.length; i++) {
+        const char = row[i];
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          values.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      values.push(current.trim());
+      return values;
+    }).filter(row => row.some(cell => cell && cell !== ''));
+    
+    console.log('🎯 SmartBubbles parsed rows:', rows.length);
+    console.log('🎯 SmartBubbles first row:', rows[0]);
+    console.log('🎯 SmartBubbles second row:', rows[1]);
+    
+    if (rows.length <= 1) {
+      console.log('🎯 No SmartBubbles data found (only header or empty)');
+      return [];
+    }
+    
+    const smartBubbles = rows.slice(1).map((row, index) => {
+      if (!row || row.length < 2) return null;
+      
+      const [offer_id, venue, dish_name, price, category, taste_match, weather_match, time_match, season_match, active] = row;
+      
+      if (!offer_id || !dish_name) return null;
+      
+      return {
+        offer_id,
+        venue: venue || 'tolhuis',
+        dish_name,
+        price: price || '',
+        category: category || 'food',
+        taste_match: taste_match && taste_match !== 'alle' ? taste_match.split(',').map(t => t.trim()) : [],
+        weather_match: weather_match && weather_match !== 'alle' ? weather_match.split(',').map(w => w.trim()) : [],
+        time_match: time_match && time_match !== 'alle' ? time_match.split(',').map(t => t.trim()) : [],
+        season_match: season_match && season_match !== 'alle' ? season_match.split(',').map(s => s.trim()) : [],
+        active: active === 'TRUE' || active === 'true' || active === '1' || active === 'WAAR',
+        row_index: index + 1
+      };
+    }).filter(Boolean);
+    
+    console.log('🎯 SmartBubbles processed:', smartBubbles.length, 'items');
+    return smartBubbles;
+    
+    } catch (error) {
+    console.error('❌ Error fetching SmartBubbles data:', error);
+    return [];
+  }
+}
+
 module.exports = {
   getCurrentPeriod,
   clearPeriodCache,
@@ -512,5 +592,6 @@ module.exports = {
   saveAIDescriptionToSheet,
   testSheetsConnection,
   testOpenAIConnection,
-  getAllSheetsData
+  getAllSheetsData,
+  getSmartBubblesData
 };

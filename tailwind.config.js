@@ -7,7 +7,7 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        'ui-serif': ['ui-serif', 'Georgia', 'Cambria', 'Times New Roman', 'Times', 'serif'],
+        'ui-serif': ['Sorts Mill Goudy', 'ui-serif', 'Georgia', 'Cambria', 'Times New Roman', 'Times', 'serif'],
         'serif': ['Sorts Mill Goudy', 'ui-serif', 'Georgia', 'Cambria', 'Times New Roman', 'Times', 'serif'],
       },
       colors: {
