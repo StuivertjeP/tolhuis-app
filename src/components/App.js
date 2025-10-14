@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { i18n, quotes, demo, focusRing, recordEvent, sentenceCase, tasteToCode, getContextSignals, gpt5RankDishes, pickPairings, gpt5PairingCopy, removeEmojisFromTaste, generateChefRecommendationTitle } from "../App.js";
 import { translateDish } from "../utils/translationService.js";
-import { getCurrentPeriod, clearPeriodCache, getWeekmenuData, clearWeekmenuCache, getPairingData, clearPairingCache, getMenuData, clearMenuCache, generateAIPairings } from "../services/sheetsService.js";
-import { generatePairingDescription } from "../utils/openaiProxy.js";
+import { getCurrentPeriod, clearPeriodCache, getWeekmenuData, clearWeekmenuCache, getPairingData, clearPairingCache, getMenuData, clearMenuCache, generateAIPairings, getSmartBubblesData } from "../services/sheetsService.js";
+import { generatePairingDescription, generateContextHint, generateSmartUpsell } from "../utils/openaiProxy.js";
+import { getCurrentWeather, getWeatherCategory, getCurrentSeason, getTimeOfDay, getWelcomeMessage } from "../services/weatherService.js";
 
 /********************
  * UI Primitives
@@ -81,7 +82,7 @@ function LangSwitchInline({ lang, onChange, className='' }){
   );
 }
 
-function BrandHeader(){
+function BrandHeader({ showIntroImage = false }){
   return (
     <header className="text-center mt-12 mb-4">
       <div className="font-[ui-serif] text-xs tracking-wide mb-2 hidden">ANNO 1901</div>
@@ -99,6 +100,22 @@ function BrandHeader(){
         />
       </div>
       <div className="text-[10px] tracking-wide hidden">HILVERSUM</div>
+      
+      {/* Intro image - alleen op eerste pagina */}
+      {showIntroImage && (
+        <div className="mt-6 mb-4">
+          <img 
+            src="/intro-image.jpg" 
+            alt="'t Tolhuis ambiance" 
+            className="mx-auto rounded-2xl shadow-lg object-cover"
+            style={{ width: '300px', height: '300px', aspectRatio: '1/1' }}
+            onError={(e) => {
+              console.warn('Intro image not found:', e.target.src);
+              e.target.style.display = 'none';
+            }}
+          />
+        </div>
+      )}
     </header>
   );
 }
@@ -250,7 +267,7 @@ function isDeHoopDish(dish) {
   return false;
 }
 
-function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingText, setCurrentPairing, setShowPairingCard, showPairingCard }){
+function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingText, setCurrentPairing, setShowPairingCard, showPairingCard, weather, weatherCategory }){
   const [currentPairing, setLocalCurrentPairing] = useState(null);
   
   useEffect(()=>{ recordEvent({ type:'dish_view', dish: dish.id }); }, [dish?.id]);
@@ -448,6 +465,8 @@ function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingT
           venue={venue} 
           lang={lang} 
           isOpen={showPairingCard}
+          weather={weather}
+          weatherCategory={weatherCategory}
             onClose={() => {
               setShowPairingCard(false);
               setLocalCurrentPairing(null);
@@ -568,20 +587,96 @@ function FixedFooter(){
   );
 }
 
-function ToastBar({ open, text, onClose }){
+/********************
+ * Smart Bubble Upsell
+ ********************/
+function SmartBubble({ message, onClose, position = 'bottom-right' }) {
+  const [isVisible, setIsVisible] = useState(false);
+  
+  useEffect(() => {
+    // Fade in
+    const timer = setTimeout(() => setIsVisible(true), 100);
+    
+    // Auto close after 8 seconds
+    const autoCloseTimer = setTimeout(() => {
+      setIsVisible(false);
+      setTimeout(onClose, 300);
+    }, 8000);
+    
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(autoCloseTimer);
+    };
+  }, [onClose]);
+  
+  const positionClasses = {
+    'bottom-right': 'right-4',
+    'bottom-left': 'left-4',
+    'top-right': 'top-20 right-4',
+    'top-left': 'top-20 left-4'
+  };
+  
+  const getBottomPosition = () => {
+    // Smart bubbles should be above the toaster (fixed at absolute bottom)
+    const toasterHeight = 70; // Height of toaster + padding
+    return `calc(${toasterHeight}px + max(8px, env(safe-area-inset-bottom)))`;
+  };
+  
   return (
-    <div role="status" aria-live="polite" className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] w-[min(92%,420px)] transition-all duration-300 ${open ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'}`} onClick={onClose}>
-      <div className="px-4 py-3 rounded-2xl shadow-[0_12px_32px_rgba(0,0,0,0.25)] bg-amber-800 text-amber-50 text-sm text-center">{text}</div>
+    <div className={`fixed ${positionClasses[position]} z-50 pointer-events-auto`}
+         style={position.includes('bottom') ? { bottom: getBottomPosition(), position: 'fixed' } : {}}>
+      <div className={`
+        bg-gradient-to-br from-amber-100 to-amber-200 
+        border border-amber-300 
+        rounded-2xl shadow-lg 
+        px-4 py-3 max-w-xs
+        transform transition-all duration-300 ease-out
+        ${isVisible ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-2 opacity-0 scale-95'}
+      `}>
+        <button 
+          onClick={() => {
+            setIsVisible(false);
+            setTimeout(onClose, 300);
+          }}
+          className="absolute -top-1 -right-1 w-5 h-5 bg-amber-600 text-white rounded-full text-xs flex items-center justify-center hover:bg-amber-700"
+        >
+          ×
+        </button>
+        <p className="text-sm text-amber-900 font-medium pr-3">
+          {message}
+        </p>
+      </div>
     </div>
   );
 }
 
-function PairingSlideCard({ pairing, dish, venue, lang, isOpen, onClose }){
+function ToastBar({ open, text, onClose }){
+  return (
+    <div 
+      role="status" 
+      aria-live="polite" 
+      className={`fixed left-1/2 -translate-x-1/2 z-[60] w-[90%] max-w-[420px] transition-all duration-300 ${open ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'}`} 
+      style={{ 
+        bottom: '0px',
+        paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
+        position: 'fixed',
+        transform: 'translateX(-50%)'
+      }} 
+      onClick={onClose}
+    >
+      <div className="px-4 py-3 rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.15)] bg-amber-800 text-amber-50 text-sm text-center">{text}</div>
+    </div>
+  );
+}
+
+function PairingSlideCard({ pairing, dish, venue, lang, isOpen, onClose, weather, weatherCategory }){
   const t = i18n[lang];
   const [isVisible, setIsVisible] = useState(false);
   const [autoCloseTimer, setAutoCloseTimer] = useState(null);
   const [aiDescription, setAiDescription] = useState(null);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [contextHint, setContextHint] = useState(null);
+  const [isLoadingContext, setIsLoadingContext] = useState(false);
   
   // Swipe-to-dismiss functionality
   const [touchStart, setTouchStart] = useState(null);
@@ -602,7 +697,8 @@ function PairingSlideCard({ pairing, dish, venue, lang, isOpen, onClose }){
   const handleTouchEnd = () => {
     if (!touchStart || !touchEnd) return;
     
-    const distance = touchStart - touchEnd;
+    // Swipe DOWN to close (touchEnd > touchStart means moving down)
+    const distance = touchEnd - touchStart;
     const isDownSwipe = distance > minSwipeDistance;
     
     if (isDownSwipe) {
@@ -616,7 +712,7 @@ function PairingSlideCard({ pairing, dish, venue, lang, isOpen, onClose }){
       setIsVisible(false);
       setTimeout(() => {
         onClose();
-      }, 500);
+      }, 300);
     }
   };
 
@@ -695,19 +791,52 @@ function PairingSlideCard({ pairing, dish, venue, lang, isOpen, onClose }){
     }
   }, [isOpen, pairing, dish, lang, aiDescription, isLoadingAI]);
   
+  // Generate context hint based on weather/time
+  useEffect(() => {
+    const generateContext = async () => {
+      if (!isOpen || !pairing || !weather || contextHint || isLoadingContext) return;
+      
+      setIsLoadingContext(true);
+      
+      try {
+        const hint = await generateContextHint({
+          pairingSuggestion: lang === 'en' ? (pairing?.suggestion_en || pairing?.suggestion) : pairing?.suggestion,
+          weatherCategory: weatherCategory || 'neutral',
+          temp: weather?.temp || 15,
+          timeOfDay: getTimeOfDay(),
+          season: getCurrentSeason(),
+          lang: lang
+        });
+        
+        if (hint) {
+          setContextHint(hint);
+          console.log('🌤️ Context hint for pairing:', hint);
+        }
+      } catch (error) {
+        console.warn('Context hint generation failed:', error);
+      } finally {
+        setIsLoadingContext(false);
+      }
+    };
+    
+    if (isOpen && pairing && weather) {
+      generateContext();
+    }
+  }, [isOpen, pairing, weather, weatherCategory, lang, contextHint, isLoadingContext]);
+  
   useEffect(() => {
     if (isOpen) {
       // Slide in
       setIsVisible(true);
       
-      // Auto slide out after 4 seconds
+      // Auto slide out after 6 seconds
       const timer = setTimeout(() => {
         setIsVisible(false);
         // Wait for animation to complete before calling onClose
         setTimeout(() => {
           onClose();
         }, 500);
-      }, 4000);
+      }, 6000);
       
       setAutoCloseTimer(timer);
       
@@ -740,38 +869,57 @@ function PairingSlideCard({ pairing, dish, venue, lang, isOpen, onClose }){
           
           {/* Content */}
           <div className="px-6 py-5">
-            <p className="font-serif text-base text-yellow-900 leading-relaxed text-center">
+            <p className="font-serif text-lg sm:text-base text-yellow-900 leading-relaxed text-center">
               {(() => {
+                let baseDescription = '';
+                
                 // PRIORITY 1: Manual Sheets description (kolom D/J)
                 const sheetDescription = lang === 'en' 
                   ? (pairing?.description_en || pairing?.description)
                   : pairing?.description;
                 
                 if (sheetDescription && sheetDescription.trim().length > 0) {
-                  return sheetDescription;
+                  baseDescription = sheetDescription;
+                } else {
+                  // PRIORITY 2: AI cached description from Sheets (kolom K/L)
+                  const aiCachedDescription = lang === 'en'
+                    ? pairing?.ai_description_en
+                    : pairing?.ai_description_nl;
+                  
+                  if (aiCachedDescription && aiCachedDescription.trim().length > 0) {
+                    baseDescription = aiCachedDescription;
+                  } else {
+                    // PRIORITY 3: Live AI generated (in state)
+                    if (aiDescription) {
+                      baseDescription = aiDescription;
+                    } else {
+                      // PRIORITY 4: Loading state (only if actively generating)
+                      if (isLoadingAI) {
+                        baseDescription = lang === 'en' ? '✨ ...' : '✨ ...';
+                      } else {
+                        // PRIORITY 5: Fallback
+                        baseDescription = lang === 'en' ? 'Perfect combination!' : 'Perfecte combinatie!';
+                      }
+                    }
+                  }
                 }
                 
-                // PRIORITY 2: AI cached description from Sheets (kolom K/L)
-                const aiCachedDescription = lang === 'en'
-                  ? pairing?.ai_description_en
-                  : pairing?.ai_description_nl;
-                
-                if (aiCachedDescription && aiCachedDescription.trim().length > 0) {
-                  return aiCachedDescription;
+                // Add subtle context-aware recommendations (only when it feels natural)
+                if (contextHint && baseDescription && !baseDescription.includes('✨ ...')) {
+                  // Only add context for specific weather conditions that make sense
+                  const shouldAddContext = weatherCategory === 'rain' || weatherCategory === 'snow' || weatherCategory === 'cold' || weatherCategory === 'hot_sunny' || (weatherCategory === 'clouds_cool' && getCurrentSeason() === 'herfst');
+                  
+                  if (shouldAddContext) {
+                    // Make it feel like a natural continuation, not a separate sentence
+                    const cleanContextHint = contextHint.replace(/[^\w\s.,!?]/g, '').trim();
+                    
+                    // Integrate naturally by replacing the ending
+                    const baseWithoutEnding = baseDescription.replace(/[.!?]$/, '').trim();
+                    return `${baseWithoutEnding} - ${cleanContextHint.toLowerCase()}.`;
+                  }
                 }
                 
-                // PRIORITY 3: Live AI generated (in state)
-                if (aiDescription) {
-                  return aiDescription;
-                }
-                
-                // PRIORITY 4: Loading state (only if actively generating)
-                if (isLoadingAI) {
-                  return lang === 'en' ? '✨ ...' : '✨ ...';
-                }
-                
-                // PRIORITY 5: Fallback
-                return lang === 'en' ? 'Perfect combination!' : 'Perfecte combinatie!';
+                return baseDescription;
               })()}
             </p>
             
@@ -802,11 +950,111 @@ function App(){
   const [currentPairing, setCurrentPairing] = useState(null);
   const [currentPeriod, setCurrentPeriod] = useState("Laden..."); // Fallback periode
   const [weekmenuData, setWeekmenuData] = useState([]);
+  const [weather, setWeather] = useState(null);
+  const [weatherCategory, setWeatherCategory] = useState('neutral');
+  const [welcomeMessage, setWelcomeMessage] = useState('');
+  const [smartBubble, setSmartBubble] = useState(null);
+  const [lastBubbleTime, setLastBubbleTime] = useState(0);
+  const [smartBubblesData, setSmartBubblesData] = useState([]);
   const [pairingData, setPairingData] = useState([]);
   const [menuData, setMenuData] = useState([]); // Menu data uit Google Sheets
-  const [selectedMenuCategory, setSelectedMenuCategory] = useState('diner'); // Default to diner
+  // Smart default menu category based on time of day
+  const getDefaultMenuCategory = () => {
+    const now = new Date();
+    const hour = now.getHours();
+    const dayOfWeek = now.getDay(); // 0=Sunday, 1=Monday, ..., 5=Friday, 6=Saturday
+    
+    // 06:00 - 11:00 = Ontbijt (alle dagen inclusief vrijdag)
+    if (hour >= 6 && hour < 11) return 'ontbijt';
+    
+    // 11:00 - 16:00 = Lunch (ook vrijdag tot 16:00)
+    if (hour >= 11 && hour < 16) return 'lunch';
+    
+    // VRIMIBO! Vrijdag vanaf 16:00 = Borrel 🍻
+    if (dayOfWeek === 5 && hour >= 16) return 'borrel';
+    
+    // 16:00/17:00 - 23:00 = Diner (ma-do vanaf 16:00, anders 17:00)
+    if (hour >= 16 && hour < 23) return 'diner';
+    
+    // 23:00 - 06:00 = Borrel (late evening/night)
+    return 'borrel';
+  };
+  
+  const [selectedMenuCategory, setSelectedMenuCategory] = useState(getDefaultMenuCategory());
   const [selectedDrinksSubcategory, setSelectedDrinksSubcategory] = useState('all'); // Default to all drinks
   const [chefRecommendationTitle, setChefRecommendationTitle] = useState('');
+  
+  // Smart bubble upsell trigger
+  const triggerSmartBubble = async () => {
+    const now = Date.now();
+    const timeSinceLastBubble = now - lastBubbleTime;
+    
+    // Don't show bubbles too frequently (min 30 seconds apart)
+    if (timeSinceLastBubble < 30000) {
+      console.log('🎯 Bubble cooldown active, skipping...');
+      return;
+    }
+    
+    // Only show on menu page (step 4)
+    if (step !== 4) {
+      return;
+    }
+    
+    try {
+      const upsellMessage = await generateSmartUpsell({
+        userTaste: user.taste,
+        weatherCategory: weatherCategory,
+        temp: weather?.temp || 15,
+        timeOfDay: getTimeOfDay(),
+        season: getCurrentSeason(),
+        lang: lang,
+        smartBubblesData: smartBubblesData
+      });
+      
+      if (upsellMessage) {
+        setSmartBubble({
+          message: upsellMessage,
+          position: Math.random() > 0.5 ? 'bottom-right' : 'bottom-left'
+        });
+        setLastBubbleTime(now);
+        console.log('🎯 Smart bubble triggered:', upsellMessage);
+      }
+    } catch (error) {
+      console.warn('Failed to generate smart bubble:', error);
+    }
+  };
+
+  // Auto-trigger smart bubbles based on user behavior
+  useEffect(() => {
+    if (step === 4 && weather) {
+      // Show first bubble after 10 seconds on menu page
+      const timer1 = setTimeout(triggerSmartBubble, 10000);
+      
+      // Show second bubble after 60 seconds if still on page
+      const timer2 = setTimeout(triggerSmartBubble, 60000);
+      
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+      };
+    }
+  }, [step, weather, user.taste, weatherCategory, lang]);
+  
+  // Load SmartBubbles data
+  useEffect(() => {
+    const loadSmartBubbles = async () => {
+      try {
+        const data = await getSmartBubblesData();
+        setSmartBubblesData(data);
+        console.log('🎯 SmartBubbles data loaded:', data.length, 'items');
+        console.log('🎯 SmartBubbles data sample:', data.slice(0, 3));
+      } catch (error) {
+        console.warn('Failed to load SmartBubbles data:', error);
+        setSmartBubblesData([]);
+      }
+    };
+    loadSmartBubbles();
+  }, []);
   
   // Debug log when pairingData changes
   useEffect(() => {
@@ -1325,6 +1573,33 @@ function App(){
     
     loadPeriod();
   }, []);
+
+  // Haal weather data op
+  useEffect(() => {
+    const loadWeather = async () => {
+      try {
+        const weatherData = await getCurrentWeather();
+        setWeather(weatherData);
+        
+        const category = getWeatherCategory(weatherData);
+        setWeatherCategory(category);
+        
+        const timeOfDay = getTimeOfDay();
+        const season = getCurrentSeason();
+        
+        // Context-aware welcome message based on weather, season, time
+        const welcomeMsg = getWelcomeMessage(category, season, timeOfDay, lang);
+        setWelcomeMessage(welcomeMsg);
+        
+        console.log('🌤️ Weather loaded:', weatherData, '- Category:', category, '- Time:', timeOfDay, '- Season:', season, '- Welcome:', welcomeMsg);
+      } catch (error) {
+        console.warn('Could not load weather:', error);
+        setWelcomeMessage(lang === 'nl' ? 'Fijn dat je er bent! ✨' : 'Great to see you! ✨');
+      }
+    };
+    
+    loadWeather();
+  }, [lang]);
 
   // Haal weekmenu data op uit Google Sheets
   useEffect(() => {
@@ -1853,17 +2128,17 @@ function App(){
           {/* Language switch in top-right */}
           <LangSwitchInline lang={lang} onChange={setLang} className="absolute top-4 right-4" />
           
-          <BrandHeader />
+          <BrandHeader showIntroImage={true} />
           
-          {/* Welcome Section */}
-          <div className="mt-20 mb-8">
+          {/* Welcome Section - boven de foto */}
+          <div className="mt-6 mb-4">
             <h1 className="text-4xl sm:text-5xl font-serif font-medium text-amber-900 mb-6">
               {t.intro}
             </h1>
           </div>
           
           <div className="mt-8"><RotatingQuote large lang={lang} /></div>
-          <div className="mt-10" style={{paddingTop: '1rem', paddingBottom: '1rem', marginBottom: '3rem'}}><Button onClick={()=>setStep(1)}>{t.seeMenu}</Button></div>
+          <div className="mt-0" style={{paddingTop: '1rem', paddingBottom: '1rem', marginBottom: '3rem'}}><Button onClick={()=>setStep(1)}>{t.seeMenu}</Button></div>
           <FixedFooter />
         </main>
       )}
@@ -1897,7 +2172,7 @@ function App(){
 
       {/* Menu */}
       {step===4 && (
-        <main className="max-w-screen-sm mx-auto px-4 py-4 pb-32">
+        <main className="max-w-screen-sm mx-auto px-4 py-4 pb-40">
           <Hero>
             {/* Language switch in hero top-right */}
             <LangSwitchInline 
@@ -1913,7 +2188,13 @@ function App(){
             />
           </Hero>
           <BrandHeader />
-          <div className="font-[ui-serif] text-xl text-center mt-4">{user.name ? (lang==='nl' ? `Hi ${user.name}! Waar heb je zin in?` : `Hi ${user.name}! What do you feel like?`) : (lang==='nl' ? 'Waar heb je zin in?' : 'What do you feel like?')}</div>
+          <div className="font-[ui-serif] text-2xl sm:text-xl text-center mt-4">
+            {user.name ? (
+              <span>{lang === 'nl' ? `Hi ${user.name}! ${welcomeMessage || 'Fijn dat je er bent! ✨'}` : `Hi ${user.name}! ${welcomeMessage || 'Great to see you! ✨'}`}</span>
+            ) : (
+              <span>{welcomeMessage || (lang === 'nl' ? 'Waar heb je zin in?' : 'What do you feel like?')}</span>
+            )}
+          </div>
 
           {/* Sticky filters under header; content scrolls from week menu */}
           <div className="sticky top-0 z-30 -mx-4 px-4 py-2 bg-[#F3E8D2]/95 backdrop-blur border-b border-amber-900/10">
@@ -1963,12 +2244,12 @@ function App(){
             <div className="grid gap-3">
               {/* 1 weekmenu item (only if available) */}
               {specialDish && (
-                <DishCardWithPairings key={specialDish.id} lang={lang} venue={venue} dish={specialDish} generatePairingsForDish={generatePairingsForDish} generatePairingText={generatePairingText} setCurrentPairing={setCurrentPairing} setShowPairingCard={setShowPairingCard} showPairingCard={showPairingCard} onShowPairing={handleShowPairing} />
+                <DishCardWithPairings key={specialDish.id} lang={lang} venue={venue} dish={specialDish} generatePairingsForDish={generatePairingsForDish} generatePairingText={generatePairingText} setCurrentPairing={setCurrentPairing} setShowPairingCard={setShowPairingCard} showPairingCard={showPairingCard} onShowPairing={handleShowPairing} weather={weather} weatherCategory={weatherCategory} />
               )}
               
               {/* 2 personal recommendations from regular menu */}
               {personalRecommendations.slice(0, 2).map(dish => (
-                <DishCardWithPairings key={dish.id} lang={lang} venue={venue} dish={dish} generatePairingsForDish={generatePairingsForDish} generatePairingText={generatePairingText} setCurrentPairing={setCurrentPairing} setShowPairingCard={setShowPairingCard} showPairingCard={showPairingCard} onShowPairing={handleShowPairing} />
+                <DishCardWithPairings key={dish.id} lang={lang} venue={venue} dish={dish} generatePairingsForDish={generatePairingsForDish} generatePairingText={generatePairingText} setCurrentPairing={setCurrentPairing} setShowPairingCard={setShowPairingCard} showPairingCard={showPairingCard} onShowPairing={handleShowPairing} weather={weather} weatherCategory={weatherCategory} />
               ))}
             </div>
           </section>
@@ -1979,7 +2260,7 @@ function App(){
               <h2 id="tolhuis-journaal-title" className="font-[ui-serif] text-lg mb-4">{currentPeriod}</h2>
               <div className="grid gap-4">
                 {weekmenuData.map(dish => (
-                  <DishCardWithPairings key={dish.id} lang={lang} venue={venue} dish={dish} generatePairingsForDish={generatePairingsForDish} generatePairingText={generatePairingText} setCurrentPairing={setCurrentPairing} setShowPairingCard={setShowPairingCard} showPairingCard={showPairingCard} onShowPairing={handleShowPairing} />
+                  <DishCardWithPairings key={dish.id} lang={lang} venue={venue} dish={dish} generatePairingsForDish={generatePairingsForDish} generatePairingText={generatePairingText} setCurrentPairing={setCurrentPairing} setShowPairingCard={setShowPairingCard} showPairingCard={showPairingCard} onShowPairing={handleShowPairing} weather={weather} weatherCategory={weatherCategory} />
                 ))}
               </div>
             </section>
@@ -2205,12 +2486,21 @@ function App(){
       )}
 
       <ToastBar open={toast.open} text={toast.text} onClose={()=>setToast({open:false, text:''})} />
+      
+      {/* Smart Bubble Upsell */}
+      {smartBubble && (
+        <SmartBubble 
+          message={smartBubble.message}
+          position={smartBubble.position}
+          onClose={() => setSmartBubble(null)}
+        />
+      )}
     </div>
   );
 }
 
 // Component that handles pairing generation
-function DishCardWithPairings({ venue, dish, onShowPairing, lang, generatePairingsForDish, generatePairingText, setCurrentPairing, setShowPairingCard, showPairingCard }) {
+function DishCardWithPairings({ venue, dish, onShowPairing, lang, generatePairingsForDish, generatePairingText, setCurrentPairing, setShowPairingCard, showPairingCard, weather, weatherCategory }) {
   console.log('🎨 DishCardWithPairings RENDER for dish:', dish.name, 'ID:', dish.id, 'lang:', lang, 'full dish object:', dish);
   const [pairings, setPairings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -2255,6 +2545,8 @@ function DishCardWithPairings({ venue, dish, onShowPairing, lang, generatePairin
       setCurrentPairing={setCurrentPairing}
       setShowPairingCard={setShowPairingCard}
       showPairingCard={showPairingCard}
+      weather={weather}
+      weatherCategory={weatherCategory}
     />
   );
 }

@@ -10,6 +10,18 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Fix iOS bottom safe area */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Prevent iOS zoom on input focus */
+input, select, textarea {
+  font-size: 16px !important;
+}
+
+/* Larger text for better readability on mobile */
+.text-\[12px\] {
+  font-size: 16px !important;
 }
 
 code {
