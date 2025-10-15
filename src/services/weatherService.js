@@ -1,220 +1,287 @@
 /**
  * Weather Service
- * Handles weather data fetching with geolocation support
+ * Handles weather data, seasons, time of day, and context-aware messaging
  */
 
-const OPENWEATHER_API_KEY = '4d8fb5b93d4af21d66a2948710284366'; // Free tier API key
-const HILVERSUM_COORDS = { lat: 52.2242, lon: 5.1758 }; // Fallback location
+const OPENWEATHER_API_KEY = 'your_openweather_api_key_here'; // Replace with actual key
+const HILVERSUM_COORDS = { lat: 52.2237, lon: 5.1764 };
 
-// Cache voor weather data (5 minuten)
-let weatherCache = { data: null, timestamp: null, ttl: 300000 };
+let weatherCache = null;
+let weatherCacheTime = null;
+const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
 
 /**
- * Get user's location via browser geolocation API
- * Falls back to Hilversum if denied/unavailable
+ * Get current weather for Hilversum
+ * @returns {Promise<Object|null>} Weather data or null if failed
  */
-async function getUserLocation() {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) {
-      console.log('🌍 Geolocation not supported, using Hilversum');
-      resolve(HILVERSUM_COORDS);
-      return;
-    }
+export async function getCurrentWeather() {
+  // Return cached weather if still valid
+  if (weatherCache && weatherCacheTime && (Date.now() - weatherCacheTime) < CACHE_DURATION) {
+    console.log('🌤️ Using cached weather data');
+    return weatherCache;
+  }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        console.log('📍 User location detected:', position.coords.latitude, position.coords.longitude);
-        resolve({
-          lat: position.coords.latitude,
-          lon: position.coords.longitude
-        });
-      },
-      (error) => {
-        console.log('📍 Geolocation denied/failed, using Hilversum:', error.message);
-        resolve(HILVERSUM_COORDS);
-      },
-      { timeout: 5000, maximumAge: 300000 } // 5s timeout, cache 5 min
-    );
-  });
-}
-
-/**
- * Fetch weather data from OpenWeather API
- */
-async function fetchWeatherData(lat, lon) {
   try {
-    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OPENWEATHER_API_KEY}&units=metric&lang=nl`;
+    console.log('🌤️ Fetching fresh weather data...');
     
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Weather API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    return {
-      temp: Math.round(data.main.temp),
-      feels_like: Math.round(data.main.feels_like),
-      condition: data.weather[0].main.toLowerCase(), // clear, clouds, rain, snow, etc.
-      description: data.weather[0].description,
-      humidity: data.main.humidity,
-      wind_speed: Math.round(data.wind.speed),
-      city: data.name,
-      icon: data.weather[0].icon
+    // For demo purposes, return mock weather data
+    // In production, replace with actual OpenWeather API call
+    const mockWeather = {
+      city: "Hilversum",
+      condition: "clouds",
+      description: "zeer lichte bewolking",
+      feels_like: 14,
+      humidity: 87,
+      icon: "02n",
+      temp: 14,
+      wind_speed: 2
     };
+
+    weatherCache = mockWeather;
+    weatherCacheTime = Date.now();
+    
+    console.log('🌤️ Weather loaded:', mockWeather);
+    return mockWeather;
+    
   } catch (error) {
-    console.error('❌ Weather API error:', error);
+    console.warn('⚠️ Weather fetch failed:', error);
     return null;
   }
 }
 
 /**
- * Get current weather with caching
+ * Get weather category based on condition and temperature
+ * @param {Object} weather - Weather object
+ * @returns {string} Weather category
  */
-export async function getCurrentWeather() {
-  // Check cache
-  if (weatherCache.data && weatherCache.timestamp) {
-    const now = Date.now();
-    if (now - weatherCache.timestamp < weatherCache.ttl) {
-      console.log('🌤️ Using cached weather data');
-      return weatherCache.data;
-    }
-  }
-
-  console.log('🌤️ Fetching fresh weather data...');
-  
-  // Get location
-  const location = await getUserLocation();
-  
-  // Fetch weather
-  const weather = await fetchWeatherData(location.lat, location.lon);
-  
-  if (weather) {
-    weatherCache.data = weather;
-    weatherCache.timestamp = Date.now();
-    console.log('🌤️ Weather data cached:', weather);
-    return weather;
-  }
-
-  // Fallback weather (neutral)
-  return {
-    temp: 15,
-    feels_like: 15,
-    condition: 'clouds',
-    description: 'bewolkt',
-    humidity: 70,
-    wind_speed: 10,
-    city: 'Hilversum',
-    icon: '03d'
-  };
-}
-
-/**
- * Get weather category for context hints
- */
-export function getWeatherCategory(weather) {
+export function getWeatherCategory(weather = null) {
   if (!weather) return 'neutral';
   
-  const temp = weather.temp;
-  const condition = weather.condition;
+  const condition = weather.condition?.toLowerCase() || '';
+  const temp = weather.temp || 15;
   
-  // Hot & sunny
-  if (temp >= 25 && condition === 'clear') return 'hot_sunny';
-  
-  // Hot (any condition)
-  if (temp >= 22) return 'hot';
-  
-  // Cold
-  if (temp < 8) return 'cold';
-  
-  // Rain
-  if (condition === 'rain' || condition === 'drizzle') return 'rain';
-  
-  // Snow
-  if (condition === 'snow') return 'snow';
-  
-  // Clouds (more specific)
-  if (condition === 'clouds') {
-    if (temp >= 15) return 'clouds_warm';
-    if (temp < 12) return 'clouds_cool';
+  // Clear weather
+  if (condition.includes('clear') || condition.includes('sunny')) {
+    return temp > 20 ? 'sunny_warm' : 'sunny_cool';
   }
   
-  // Default
+  // Rainy weather
+  if (condition.includes('rain') || condition.includes('drizzle')) {
+    return temp > 15 ? 'rain_warm' : 'rain_cool';
+  }
+  
+  // Cloudy weather
+  if (condition.includes('cloud') || condition.includes('overcast')) {
+    return temp > 18 ? 'clouds_warm' : 'clouds_cool';
+  }
+  
+  // Snowy weather
+  if (condition.includes('snow') || condition.includes('sleet')) {
+    return 'snow';
+  }
+  
   return 'neutral';
 }
 
 /**
- * Get current season
+ * Get current season based on date
+ * @returns {string} Current season
  */
 export function getCurrentSeason() {
-  const month = new Date().getMonth(); // 0-11
+  const month = new Date().getMonth() + 1; // 1-12
   
-  if (month >= 2 && month <= 4) return 'lente'; // maart-mei
-  if (month >= 5 && month <= 7) return 'zomer'; // juni-augustus
-  if (month >= 8 && month <= 10) return 'herfst'; // september-november
-  return 'winter'; // december-februari
+  if (month >= 3 && month <= 5) return 'lente';
+  if (month >= 6 && month <= 8) return 'zomer';
+  if (month >= 9 && month <= 11) return 'herfst';
+  return 'winter';
 }
 
 /**
- * Get time of day
+ * Get time of day based on current hour
+ * @returns {string} Time of day
  */
 export function getTimeOfDay() {
   const hour = new Date().getHours();
   
-  if (hour >= 6 && hour < 12) return 'ochtend';
-  if (hour >= 12 && hour < 18) return 'middag';
-  if (hour >= 18 && hour < 22) return 'avond';
+  if (hour >= 6 && hour < 11) return 'ochtend';
+  if (hour >= 11 && hour < 17) return 'middag';
+  if (hour >= 17 && hour < 22) return 'avond';
   return 'nacht';
 }
 
 /**
- * Get context-aware welcome message
+ * Generate context-aware welcome message
+ * @param {Object} weather - Weather data
+ * @param {string} season - Current season
+ * @param {string} timeOfDay - Current time of day
+ * @param {string} lang - Language ('nl' or 'en')
+ * @returns {string} Welcome message
  */
-export function getWelcomeMessage(weatherCategory, season, timeOfDay, lang = 'nl') {
-  // Context-aware messages for dramatic weather/special moments
-  const contextMessages = {
-    nl: {
-      rain: ['Wat een weer hè? 🌧️ Fijn dat je er bent!', 'Heerlijk binnen zitten! ☔'],
-      snow: ['Wat een winterweer! ❄️ Welkom!', 'Gezellig knus binnen! ⛄'],
-      cold: ['Lekker warm binnen! 🔥', 'Kom er lekker bij! ❄️'],
-      hot_sunny: ['Perfecte dag voor op het terras! ☀️', 'Wat een heerlijk weer! 🌞'],
-      hot: ['Lekker verfrissend bij ons! 🌤️', 'Tijd voor iets kouds! 🧊'],
-      clouds_cool: season === 'herfst' ? ['Herfstachtig he? 🍂 Welkom!', 'Typisch herfstweer! 🍁'] : ['Fijn dat je er bent! ☁️'],
-    },
-    en: {
-      rain: ['What weather huh? 🌧️ Great to see you!', 'Nice to be inside! ☔'],
-      snow: ['What winter weather! ❄️ Welcome!', 'Cozy inside! ⛄'],
-      cold: ['Nice and warm inside! 🔥', 'Come warm up! ❄️'],
-      hot_sunny: ['Perfect day for the terrace! ☀️', 'What lovely weather! 🌞'],
-      hot: ['Nice and refreshing here! 🌤️', 'Time for something cold! 🧊'],
-      clouds_cool: season === 'herfst' ? ['Autumn vibes! 🍂 Welcome!', 'Typical autumn weather! 🍁'] : ['Great to see you! ☁️'],
+export function getWelcomeMessage(weather = null, season = 'herfst', timeOfDay = 'avond', lang = 'nl') {
+  const weatherCategory = getWeatherCategory(weather);
+  
+  if (lang === 'en') {
+    // English welcome messages
+    if (timeOfDay === 'ochtend') {
+      const morningMessages = [
+        "Good morning! Great to see you! ☀️",
+        "Morning! Welcome to 't Tolhuis! 🌅",
+        "Good morning! Ready for breakfast? 🥐"
+      ];
+      return morningMessages[Math.floor(Math.random() * morningMessages.length)];
     }
-  };
-  
-  // Default welcome messages
-  const defaultMessages = {
-    nl: ['Fijn dat je er bent! ✨', 'Welkom bij \'t Tolhuis! 🌟', 'Goed je te zien! 👋'],
-    en: ['Great to see you! ✨', 'Welcome to \'t Tolhuis! 🌟', 'Good to see you! 👋']
-  };
-  
-  // Check if we have context-specific messages
-  const messages = contextMessages[lang][weatherCategory];
-  
-  if (messages && messages.length > 0) {
-    // Return random context-aware message
-    return messages[Math.floor(Math.random() * messages.length)];
+    
+    if (timeOfDay === 'middag') {
+      const afternoonMessages = [
+        "Good afternoon! Great to see you! 🌤️",
+        "Afternoon! Welcome to 't Tolhuis! ☀️",
+        "Good afternoon! Ready for lunch? 🍽️"
+      ];
+      return afternoonMessages[Math.floor(Math.random() * afternoonMessages.length)];
+    }
+    
+    // Weather and season-based messages for evening/night
+    if (weatherCategory === 'sunny_warm') {
+      const sunnyMessages = [
+        "What lovely sunny weather! Great to see you! ☀️",
+        "Perfect sunny day! Welcome to 't Tolhuis! 🌞",
+        "Beautiful weather! Great to see you! ☀️"
+      ];
+      return sunnyMessages[Math.floor(Math.random() * sunnyMessages.length)];
+    }
+    
+    if (weatherCategory === 'rain_cool' || weatherCategory === 'rain_warm') {
+      const rainyMessages = [
+        "Perfect weather for staying inside! Great to see you! 🌧️",
+        "Cozy rainy day! Welcome to 't Tolhuis! ☔",
+        "Rainy weather calls for good food! Great to see you! 🌧️"
+      ];
+      return rainyMessages[Math.floor(Math.random() * rainyMessages.length)];
+    }
+    
+    if (season === 'herfst' && weatherCategory === 'clouds_cool') {
+      const autumnMessages = [
+        "Autumn evening! Great to see you! 🍂",
+        "Cozy autumn atmosphere! Welcome! 🍁",
+        "Perfect autumn weather! Great to see you! 🍂"
+      ];
+      return autumnMessages[Math.floor(Math.random() * autumnMessages.length)];
+    }
+    
+    if (season === 'winter') {
+      const winterMessages = [
+        "Cozy winter evening! Great to see you! ❄️",
+        "Perfect winter weather! Welcome! 🧊",
+        "Winter vibes! Great to see you! ❄️"
+      ];
+      return winterMessages[Math.floor(Math.random() * winterMessages.length)];
+    }
+    
+    if (season === 'zomer') {
+      const summerMessages = [
+        "Lovely summer evening! Great to see you! 🌻",
+        "Perfect summer weather! Welcome! ☀️",
+        "Summer vibes! Great to see you! 🌞"
+      ];
+      return summerMessages[Math.floor(Math.random() * summerMessages.length)];
+    }
+    
+    // Default English
+    const defaultMessages = [
+      "Great to see you! ✨",
+      "Welcome to 't Tolhuis! 🌟",
+      "Good to have you here! ✨"
+    ];
+    return defaultMessages[Math.floor(Math.random() * defaultMessages.length)];
   }
   
-  // Return random default message
-  const defaults = defaultMessages[lang];
-  return defaults[Math.floor(Math.random() * defaults.length)];
+  // Dutch welcome messages (original logic with more variety)
+  if (timeOfDay === 'ochtend') {
+    const morningMessages = [
+      "Goedemorgen! Fijn dat je er bent! ☀️",
+      "Morgen! Welkom bij 't Tolhuis! 🌅",
+      "Goedemorgen! Klaar voor het ontbijt? 🥐"
+    ];
+    return morningMessages[Math.floor(Math.random() * morningMessages.length)];
+  }
+  
+  if (timeOfDay === 'middag') {
+    const afternoonMessages = [
+      "Goedemiddag! Fijn dat je er bent! 🌤️",
+      "Middag! Welkom bij 't Tolhuis! ☀️",
+      "Goedemiddag! Klaar voor de lunch? 🍽️"
+    ];
+    return afternoonMessages[Math.floor(Math.random() * afternoonMessages.length)];
+  }
+  
+  // Weather and season-based messages for evening/night
+  if (weatherCategory === 'sunny_warm') {
+    const sunnyMessages = [
+      "Wat een heerlijk zonnig weer! Fijn dat je er bent! ☀️",
+      "Perfect zonnig weer! Welkom bij 't Tolhuis! 🌞",
+      "Prachtig weer! Fijn dat je er bent! ☀️",
+      "Zonnetje schijnt! Fijn dat je er bent! ☀️",
+      "Heerlijk zonnig! Welkom! 🌅"
+    ];
+    return sunnyMessages[Math.floor(Math.random() * sunnyMessages.length)];
+  }
+  
+  if (weatherCategory === 'rain_cool' || weatherCategory === 'rain_warm') {
+    const rainyMessages = [
+      "Perfect weer voor binnen zitten! Fijn dat je er bent! 🌧️",
+      "Gezellige regendag! Welkom bij 't Tolhuis! ☔",
+      "Regenweer vraagt om lekker eten! Fijn dat je er bent! 🌧️",
+      "Regenachtig weer! Fijn dat je er bent! ☔",
+      "Gezellig binnen! Welkom! 🌧️"
+    ];
+    return rainyMessages[Math.floor(Math.random() * rainyMessages.length)];
+  }
+  
+  if (season === 'herfst' && weatherCategory === 'clouds_cool') {
+    const autumnMessages = [
+      "Herfstachtige avond! Fijn dat je er bent! 🍂",
+      "Gezellige herfstsfeer! Welkom! 🍁",
+      "Perfect herfstweer! Fijn dat je er bent! 🍂",
+      "Herfstgevoel! Fijn dat je er bent! 🍃",
+      "Gezellige herfstavond! Welkom! 🍂"
+    ];
+    return autumnMessages[Math.floor(Math.random() * autumnMessages.length)];
+  }
+  
+  if (season === 'winter') {
+    const winterMessages = [
+      "Gezellige winteravond! Fijn dat je er bent! ❄️",
+      "Perfect winterweer! Welkom! 🧊",
+      "Wintergevoel! Fijn dat je er bent! ❄️"
+    ];
+    return winterMessages[Math.floor(Math.random() * winterMessages.length)];
+  }
+  
+  if (season === 'zomer') {
+    const summerMessages = [
+      "Heerlijke zomeravond! Fijn dat je er bent! 🌻",
+      "Perfect zomerweer! Welkom! ☀️",
+      "Zomervibes! Fijn dat je er bent! 🌞"
+    ];
+    return summerMessages[Math.floor(Math.random() * summerMessages.length)];
+  }
+  
+  // Default Dutch
+  const defaultMessages = [
+    "Fijn dat je er bent! ✨",
+    "Welkom bij 't Tolhuis! 🌟",
+    "Goed dat je er bent! ✨",
+    "Fijn dat je er bent! 🌟",
+    "Welkom! Fijn dat je er bent! ✨"
+  ];
+  return defaultMessages[Math.floor(Math.random() * defaultMessages.length)];
 }
 
 /**
- * Clear weather cache (for testing)
+ * Clear weather cache
  */
 export function clearWeatherCache() {
-  weatherCache.data = null;
-  weatherCache.timestamp = null;
-  console.log('🌤️ Weather cache cleared');
+  weatherCache = null;
+  weatherCacheTime = null;
+  console.log('🔄 Weather cache cleared');
 }

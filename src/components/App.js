@@ -156,6 +156,9 @@ function RotatingQuote({ large = false, lang = 'nl' }){
  * Cards
  ********************/
 function SpecialsCard({ specials, lang }){
+  const [aiTranslations, setAiTranslations] = useState({});
+  const [isLoadingTranslations, setIsLoadingTranslations] = useState(false);
+  
   // Title translations for English
   const titleMap = lang === 'en' ? { 
     'HAP VAN DE WEEK': 'Dish of the week',
@@ -167,6 +170,82 @@ function SpecialsCard({ specials, lang }){
     'VEGETARISCHE SPECIAL': 'Vegetarian special'
   } : {};
   
+  // Load AI translations for weekmenu items when switching to English
+  useEffect(() => {
+    const loadAITranslations = async () => {
+      if (lang !== 'en') {
+        setAiTranslations({});
+        return;
+      }
+      
+      setIsLoadingTranslations(true);
+      const translations = {};
+      
+      try {
+        const { generateDishTranslation } = await import('../utils/openaiProxy.js');
+        
+        // Process all weekmenu items
+        for (const group of specials.groups) {
+          for (const item of group.items) {
+            const itemId = item.id || `${item.name}-${item.title}`;
+            
+            // Skip if manual translation exists
+            if (item.title_en && item.title_en.trim() !== '') {
+              continue;
+            }
+            
+            // Skip if already cached
+            if (item.ai_title_en && item.ai_title_en.trim() !== '') {
+              translations[itemId] = {
+                title_en: item.ai_title_en,
+                description_en: item.ai_description_en || ''
+              };
+              continue;
+            }
+            
+            // Generate AI translation
+            try {
+              const { generateDishTranslation } = await import('../utils/openaiProxy.js');
+              const translation = await generateDishTranslation({
+                title: item.title || item.name,
+                description: item.description || item.desc || ''
+              });
+              translations[itemId] = translation;
+              console.log(`✅ Weekmenu AI translation for ${item.name}:`, translation);
+            } catch (error) {
+              console.warn(`AI translation failed for ${item.name}:`, error);
+              // Use simple fallback
+              const fallbackTranslations = {
+                'Franse uiensoep': 'French Onion Soup',
+                'Salade van de maand': 'Salad of the Month',
+                'Soep van de maand': 'Soup of the Month',
+                'Hap van de week': 'Dish of the Week',
+                'Vegetarische hap': 'Vegetarian Dish',
+                'Vis van de dag': 'Fish of the Day'
+              };
+              const fallbackTitle = fallbackTranslations[item.title || item.name];
+              if (fallbackTitle) {
+                translations[itemId] = {
+                  title_en: fallbackTitle,
+                  description_en: item.description || item.desc || ''
+                };
+                console.log(`📚 Using weekmenu fallback for ${item.name}:`, fallbackTitle);
+              }
+            }
+          }
+        }
+        
+        setAiTranslations(translations);
+      } catch (error) {
+        console.warn('AI translations loading failed:', error);
+      } finally {
+        setIsLoadingTranslations(false);
+      }
+    };
+    
+    loadAITranslations();
+  }, [lang, specials.groups]);
+  
   return (
     <Card className="p-5">
       <div className="space-y-5">
@@ -174,12 +253,22 @@ function SpecialsCard({ specials, lang }){
           <div key={gr.title}>
             <h3 className="font-[ui-serif] text-base tracking-wide mb-1">{titleMap[gr.title] || gr.title}</h3>
             {gr.items.map((it, idx) => { 
-              // SIMPLE TRANSLATION: If English, use columns N and O from Google Sheets
+              // HYBRID TRANSLATION: Manual Sheets > AI translation > Original
               let itemName, itemDesc;
               
               if (lang === 'en') {
-                itemName = it.title_en || it.name || it.title;
-                itemDesc = it.description_en || it.desc || it.description;
+                const itemId = it.id || `${it.name}-${it.title}`;
+                const aiTranslation = aiTranslations[itemId];
+                
+                itemName = it.title_en || aiTranslation?.title_en || it.name || it.title;
+                itemDesc = it.description_en || aiTranslation?.description_en || it.desc || it.description;
+                
+                console.log('🌐 Weekmenu translation:', {
+                  original: it.name,
+                  manual: it.title_en,
+                  ai: aiTranslation?.title_en,
+                  using: itemName
+                });
               } else {
                 itemName = it.name || it.title;
                 itemDesc = it.desc || it.description;
@@ -268,7 +357,10 @@ function isDeHoopDish(dish) {
 }
 
 function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingText, setCurrentPairing, setShowPairingCard, showPairingCard, weather, weatherCategory }){
+  
   const [currentPairing, setLocalCurrentPairing] = useState(null);
+  const [aiTranslation, setAiTranslation] = useState(null);
+  const [isLoadingTranslation, setIsLoadingTranslation] = useState(false);
   
   useEffect(()=>{ recordEvent({ type:'dish_view', dish: dish.id }); }, [dish?.id]);
   
@@ -278,30 +370,65 @@ function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingT
     setShowPairingCard(false);
   }, [lang, dish.id, pairings, setShowPairingCard]);
   
+  // Load AI translation if needed (English + no manual translation)
+  useEffect(() => {
+    const loadAITranslation = async () => {
+      if (lang !== 'en') {
+        setAiTranslation(null);
+        return;
+      }
+      
+      // Check if BOTH title and description are manually translated
+      const hasManualTitle = (dish.title_en && dish.title_en.trim() !== '');
+      const hasManualDescription = (dish.description_en && dish.description_en.trim() !== '');
+      
+      if (hasManualTitle && hasManualDescription) {
+        setAiTranslation(null);
+        return;
+      }
+      
+      // Check if cached AI translation exists
+      if (dish.ai_title_en && dish.ai_title_en.trim() !== '') {
+        setAiTranslation({
+          title_en: dish.ai_title_en,
+          description_en: dish.ai_description_en || ''
+        });
+        return;
+      }
+      
+      // Generate AI translation
+      setIsLoadingTranslation(true);
+      try {
+        const { generateDishTranslation } = await import('../utils/openaiProxy.js');
+        const translation = await generateDishTranslation({
+          title: dish.title || dish.name,
+          description: dish.description || dish.desc || ''
+        });
+        setAiTranslation(translation);
+      } catch (error) {
+        console.warn('❌ AI translation failed:', error);
+        setAiTranslation(null);
+      } finally {
+        setIsLoadingTranslation(false);
+      }
+    };
+    
+    loadAITranslation();
+  }, [lang, dish.title, dish.name, dish.title_en, dish.description_en, dish.ai_title_en]);
+  
   
   // SIMPLE TRANSLATION: If English, use columns N and O from Google Sheets
   let displayName, displayDesc;
   
   if (lang === 'en') {
-    // Use English translations from Google Sheets columns N and O
-    displayName = dish.title_en || dish.name || dish.title;
-    displayDesc = dish.description_en || dish.desc || dish.description;
-    console.log('🇬🇧 ENGLISH MODE - Using Sheets columns N & O:', {
-      originalTitle: dish.title,
-      englishTitle: dish.title_en,
-      usingTitle: displayName,
-      originalDesc: dish.description,
-      englishDesc: dish.description_en,
-      usingDesc: displayDesc
-    });
+    // Priority: Manual Sheets translation > AI translation > Original
+    displayName = dish.title_en || aiTranslation?.title_en || dish.name || dish.title;
+    displayDesc = dish.description_en || aiTranslation?.description_en || dish.desc || dish.description;
+    
   } else {
     // Use Dutch original
     displayName = dish.name || dish.title;
     displayDesc = dish.desc || dish.description;
-    console.log('🇳🇱 DUTCH MODE - Using original:', {
-      usingTitle: displayName,
-      usingDesc: displayDesc
-    });
   }
   
   const t = i18n[lang];
@@ -322,6 +449,36 @@ function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingT
       'Gerecht': 'Dish'
     };
     return translations[category] || category || 'Dish';
+  };
+  
+  // Diet tags translation - English only
+  const translateDietTag = (tag) => {
+    if (lang === 'nl') return tag;
+    
+    const dietTranslations = {
+      'lactose': 'Lactose',
+      'lactosevrij': 'Lactose-free',
+      'glutenvrij': 'Gluten-free',
+      'glutfree': 'Gluten-free',
+      'vega': 'Vegetarian',
+      'vegetarisch': 'Vegetarian',
+      'veg': 'Vegetarian',
+      'vlees': 'Meat',
+      'vis': 'Fish',
+      'noten': 'Nuts',
+      'pinda': 'Peanuts',
+      'ei': 'Eggs',
+      'soja': 'Soy',
+      'spicy': 'Spicy',
+      'pittig': 'Spicy',
+      'mild': 'Mild',
+      'zout': 'Salty',
+      'zoet': 'Sweet',
+      'zuur': 'Sour',
+      'bitter': 'Bitter'
+    };
+    
+    return dietTranslations[tag.toLowerCase()] || tag;
   };
   
   // SIMPLE SUPPLIER DETECTION - alleen Google Sheets supplier kolom
@@ -439,7 +596,7 @@ function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingT
           {/* Diet tags */}
           {(dish.diet||[]).length > 0 && (
             <div className="flex flex-wrap gap-1" aria-hidden="true">
-              {(dish.diet||[]).slice(0,3).map((d)=> <span key={String(d)} className="text-[11px] px-2 py-1 rounded-full bg-amber-700/10">{String(d)}</span>)}
+              {(dish.diet||[]).slice(0,3).map((d)=> <span key={String(d)} className="text-[11px] px-2 py-1 rounded-full bg-amber-700/10">{translateDietTag(String(d))}</span>)}
             </div>
           )}
         </div>
@@ -859,9 +1016,7 @@ function PairingSlideCard({ pairing, dish, venue, lang, isOpen, onClose, weather
       {/* Slide Card */}
       <div 
         className={`w-full max-w-md transform transition-all duration-500 ease-out pointer-events-auto ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'}`}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        onClick={onClose}
       >
         <div className="bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600 rounded-t-2xl shadow-lg overflow-hidden">
           {/* Swipe indicator */}
@@ -1588,7 +1743,7 @@ function App(){
         const season = getCurrentSeason();
         
         // Context-aware welcome message based on weather, season, time
-        const welcomeMsg = getWelcomeMessage(category, season, timeOfDay, lang);
+        const welcomeMsg = getWelcomeMessage(weatherData, season, timeOfDay, lang);
         setWelcomeMessage(welcomeMsg);
         
         console.log('🌤️ Weather loaded:', weatherData, '- Category:', category, '- Time:', timeOfDay, '- Season:', season, '- Welcome:', welcomeMsg);
@@ -1609,9 +1764,26 @@ function App(){
         clearWeekmenuCache();
         const weekmenu = await getWeekmenuData();
         setWeekmenuData(weekmenu);
-        console.log('✅ Weekmenu geladen uit Sheets:', weekmenu);
+        console.log('✅ Weekmenu geladen uit Sheets:', weekmenu.length, 'items');
+        console.log('📋 Weekmenu items:', weekmenu.map(item => ({ 
+          id: item.id, 
+          title: item.title, 
+          name: item.name,
+          title_en: item.title_en,
+          description_en: item.description_en,
+          hasTitleEn: !!item.title_en,
+          hasAiTitleEn: !!item.ai_title_en
+        })));
+        
+        // DEBUG: Check if weekmenu items have the right structure
+        if (weekmenu.length > 0) {
+          console.log('🔍 First weekmenu item structure:', weekmenu[0]);
+          console.log('🔍 All weekmenu item keys:', Object.keys(weekmenu[0]));
+        } else {
+          console.log('⚠️ No weekmenu items found!');
+        }
       } catch (error) {
-        console.warn('Kon weekmenu niet laden uit Sheets:', error);
+        console.warn('❌ Kon weekmenu niet laden uit Sheets:', error);
         setWeekmenuData([]);
       }
     };
@@ -2254,14 +2426,16 @@ function App(){
             </div>
           </section>
 
-          {/* 't Tolhuis Journaal section - Individual dish cards */}
+          {/* 't Tolhuis Journaal section - Individual dish cards with AI translations */}
             {weekmenuData.length > 0 && (
             <section aria-labelledby="tolhuis-journaal-title" className="mt-6">
               <h2 id="tolhuis-journaal-title" className="font-[ui-serif] text-lg mb-4">{currentPeriod}</h2>
               <div className="grid gap-4">
-                {weekmenuData.map(dish => (
-                  <DishCardWithPairings key={dish.id} lang={lang} venue={venue} dish={dish} generatePairingsForDish={generatePairingsForDish} generatePairingText={generatePairingText} setCurrentPairing={setCurrentPairing} setShowPairingCard={setShowPairingCard} showPairingCard={showPairingCard} onShowPairing={handleShowPairing} weather={weather} weatherCategory={weatherCategory} />
-                ))}
+                {weekmenuData.map(dish => {
+                  return (
+                    <DishCardWithPairings key={dish.id} lang={lang} venue={venue} dish={dish} generatePairingsForDish={generatePairingsForDish} generatePairingText={generatePairingText} setCurrentPairing={setCurrentPairing} setShowPairingCard={setShowPairingCard} showPairingCard={showPairingCard} onShowPairing={handleShowPairing} weather={weather} weatherCategory={weatherCategory} />
+                  );
+                })}
               </div>
             </section>
             )}
@@ -2383,7 +2557,7 @@ function App(){
             {menuCategories.dranken?.length > 0 && (
               <div id="drankenkaart-anchor" className="mt-8">
                 <h3 className="font-['Sorts_Mill_Goudy'] mb-4" style={{fontSize: '1.2rem'}}>
-                  {lang === 'nl' ? '🍷 Dranken kaart' : '🍷 Drinks menu'}
+                  {lang === 'nl' ? '🍷 Drankenkaart' : '🍷 Drinks menu'}
                 </h3>
                 
                 {/* Drinks subcategory buttons */}
@@ -2534,21 +2708,27 @@ function DishCardWithPairings({ venue, dish, onShowPairing, lang, generatePairin
     pairings: pairings.length > 0 ? `${pairings.length} pairings found` : 'NO PAIRINGS'
   });
   
-  return (
-    <DishCard 
-      venue={venue} 
-      dish={dish} 
-      pairings={pairingsToPass} 
-      onShowPairing={onShowPairing} 
-      lang={lang} 
-      generatePairingText={generatePairingText}
-      setCurrentPairing={setCurrentPairing}
-      setShowPairingCard={setShowPairingCard}
-      showPairingCard={showPairingCard}
-      weather={weather}
-      weatherCategory={weatherCategory}
-    />
-  );
+  try {
+    console.log('🔄 DishCardWithPairings about to render DishCard for:', dish.name);
+    return (
+      <DishCard 
+        venue={venue} 
+        dish={dish} 
+        pairings={pairingsToPass} 
+        onShowPairing={onShowPairing} 
+        lang={lang} 
+        generatePairingText={generatePairingText}
+        setCurrentPairing={setCurrentPairing}
+        setShowPairingCard={setShowPairingCard}
+        showPairingCard={showPairingCard}
+        weather={weather}
+        weatherCategory={weatherCategory}
+      />
+    );
+  } catch (error) {
+    console.error('❌ Error in DishCardWithPairings rendering DishCard for', dish.name, error);
+    return <div>Error rendering {dish.name}</div>;
+  }
 }
 
 export default App;

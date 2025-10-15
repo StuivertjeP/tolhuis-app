@@ -291,9 +291,9 @@ const translationCache = new Map();
 let globalAbortController = null;
 
 
-// Simple wrapper for backward compatibility
-function translateDish(d, lang) {
-  return translateDishService(d, lang);
+// Simple wrapper for backward compatibility (now async for AI translations)
+async function translateDish(d, lang) {
+  return await translateDishService(d, lang);
 }
 
 // AI translation removed - using reliable local translation service instead

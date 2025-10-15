@@ -177,8 +177,10 @@ export async function generateAIDescriptionViaProxy(prompt, lang = 'nl') {
 }
 
 async function generateAIDescriptionClientSide(prompt, lang = 'nl') {
-  // TEMPORARY: Direct API key for testing (CHANGE THIS BEFORE PRODUCTION!)
-  const apiKey = 'REDACTED_API_KEY';
+  console.log('🤖 generateAIDescriptionClientSide called with lang:', lang);
+  
+  // Get API key from environment variable or use fallback
+  const apiKey = process.env.REACT_APP_OPENAI_API_KEY || 'REDACTED_API_KEY';
   
   console.log('🔑 API Key check:', apiKey ? `Found (${apiKey.substring(0, 10)}...)` : 'NOT FOUND');
   
@@ -264,7 +266,12 @@ export async function generateSmartUpsell({ userTaste = '', weatherCategory = 'n
     console.log('⚠️ No SmartBubbles data available, using hardcoded fallback menu items');
     
     // Hardcoded menu items (temporary until SmartBubbles sheet is ready)
-    const hardcodedItems = [
+    const hardcodedItems = lang === 'en' ? [
+      { dish_name: "Carpaccio tenderloin", category: "food", price: "€ 7,50" },
+      { dish_name: "Special beer", category: "drink", price: "€ 4,95" },
+      { dish_name: "Crème brûlée", category: "dessert", price: "€ 6,50" },
+      { dish_name: "French onion soup", category: "food", price: "€ 6,95" }
+    ] : [
       { dish_name: "Carpaccio ossenhaas", category: "food", price: "€ 7,50" },
       { dish_name: "Speciaal biertje", category: "drink", price: "€ 4,95" },
       { dish_name: "Crème brûlée", category: "dessert", price: "€ 6,50" },
@@ -293,13 +300,20 @@ export async function generateSmartUpsell({ userTaste = '', weatherCategory = 'n
        - IMPORTANT: Consider time - no alcohol in morning/afternoon!
        
        Examples (creative with keywords + PRICE):
-       If menu has "Carpaccio ossenhaas - € 7,50":
+       If menu has "Carpaccio tenderloin - € 7,50":
        ✅ "Try our carpaccio for only € 7,50! 🥩"
-       ✅ "Carpaccio ossenhaas for € 7,50! 🍽️"
+       ✅ "Carpaccio tenderloin for € 7,50! 🍽️"
        
        If menu has "Special beer - € 4,95":
        ✅ "Special beer for € 4,95! 🍺"
        ✅ "Beer for € 4,95? 🍻"
+       
+       IMPORTANT: Use the EXACT dish names from the menu items above!
+       
+       CRITICAL: Translate Dutch dish names to English:
+       - "Carpaccio ossenhaas" → "Carpaccio tenderloin"
+       - "Speciaal biertje" → "Special beer"
+       - "Glas wijn" → "Glass of wine"
        
        GENERAL (if no match):
        "Our chef has something special today! 👨‍🍳"
@@ -349,7 +363,153 @@ export async function generateSmartUpsell({ userTaste = '', weatherCategory = 'n
     console.warn('Smart upsell generation failed:', error);
   }
 
-  // If AI failed, return generic fallback
-  console.log('⚠️ AI generation failed, using generic fallback');
-  return lang === 'nl' ? "Onze chef heeft vandaag iets speciaals! 👨‍🍳" : "Our chef has something special today! 👨‍🍳";
+  // If AI failed, return contextual fallback based on time and weather
+  console.log('⚠️ AI generation failed, using contextual fallback');
+  
+  if (lang === 'en') {
+    const englishFallbacks = {
+      morning: "Try our breakfast special! ☀️",
+      afternoon: "Perfect lunch option available! 🍽️", 
+      evening: "Evening specials await! 🌙",
+      rainy: "Cozy indoor dining! ☔",
+      sunny: "Perfect terrace weather! ☀️",
+      autumn: "Autumn flavors available! 🍂",
+      winter: "Warm winter dishes! ❄️",
+      spring: "Fresh spring menu! 🌸",
+      summer: "Refreshing summer options! 🌻"
+    };
+    
+    // Try to match context
+    if (timeOfDay === 'ochtend') return englishFallbacks.morning;
+    if (timeOfDay === 'middag') return englishFallbacks.afternoon;
+    if (timeOfDay === 'avond') return englishFallbacks.evening;
+    if (weatherCategory.includes('rain')) return englishFallbacks.rainy;
+    if (weatherCategory.includes('sunny')) return englishFallbacks.sunny;
+    if (season === 'herfst') return englishFallbacks.autumn;
+    if (season === 'winter') return englishFallbacks.winter;
+    if (season === 'lente') return englishFallbacks.spring;
+    if (season === 'zomer') return englishFallbacks.summer;
+    
+    return "Our chef has something special today! 👨‍🍳";
+  } else {
+    const dutchFallbacks = {
+      morning: "Probeer ons ontbijt! ☀️",
+      afternoon: "Perfecte lunch optie beschikbaar! 🍽️",
+      evening: "Avond specials wachten! 🌙", 
+      rainy: "Gezellig binnen dineren! ☔",
+      sunny: "Perfect terras weer! ☀️",
+      autumn: "Herfst smaken beschikbaar! 🍂",
+      winter: "Warme winter gerechten! ❄️",
+      spring: "Verse lente menu! 🌸",
+      summer: "Verfrissende zomer opties! 🌻"
+    };
+    
+    // Try to match context
+    if (timeOfDay === 'ochtend') return dutchFallbacks.morning;
+    if (timeOfDay === 'middag') return dutchFallbacks.afternoon;
+    if (timeOfDay === 'avond') return dutchFallbacks.evening;
+    if (weatherCategory.includes('rain')) return dutchFallbacks.rainy;
+    if (weatherCategory.includes('sunny')) return dutchFallbacks.sunny;
+    if (season === 'herfst') return dutchFallbacks.autumn;
+    if (season === 'winter') return dutchFallbacks.winter;
+    if (season === 'lente') return dutchFallbacks.spring;
+    if (season === 'zomer') return dutchFallbacks.summer;
+    
+    return "Onze chef heeft vandaag iets speciaals! 👨‍🍳";
+  }
+}
+
+/**
+ * Generate AI translation for dish title and description
+ * @param {Object} params - Translation parameters
+ * @param {string} params.title - Dutch dish title
+ * @param {string} params.description - Dutch dish description (optional)
+ * @returns {Promise<Object>} { title_en, description_en }
+ */
+export async function generateDishTranslation({ title, description = '' }) {
+  
+  // First try simple fallback translations for common dishes
+  const fallbackTranslations = {
+    'Franse uiensoep': 'French Onion Soup',
+    'Biefstuk Tolhuis': 'Tolhuis Steak',
+    'Carpaccio ossenhaas': 'Carpaccio Tenderloin',
+    'Crème brûlée': 'Crème Brûlée',
+    'Tiramisu': 'Tiramisu',
+    'Salade van de maand': 'Salad of the Month',
+    'Soep van de maand': 'Soup of the Month',
+    'Hap van de week': 'Dish of the Week',
+    'Vegetarische hap': 'Vegetarian Dish',
+    'Vis van de dag': 'Fish of the Day',
+    'Speciaal biertje': 'Special Beer',
+    'Glas wijn': 'Glass of Wine',
+    'Koffie': 'Coffee',
+    'Thee': 'Tea',
+    'Friet': 'Fries',
+    'Aardappelen': 'Potatoes',
+    'Rijst': 'Rice',
+    'Pasta': 'Pasta',
+    'Salade': 'Salad',
+    'Soep': 'Soup',
+    'Dessert': 'Dessert'
+  };
+  
+  // Try fallback first
+  const fallbackTitle = fallbackTranslations[title];
+  if (fallbackTitle) {
+    return {
+      title_en: fallbackTitle,
+      description_en: description || ''
+    };
+  }
+  
+  // If no fallback, try AI - EXACTLY like generatePairingDescription works
+  const prompt = `Translate ONLY the Dutch dish title to English:
+
+Dutch Title: ${title}
+
+Guidelines:
+- Translate ONLY the title, not the description
+- Keep proper names as-is: "Carpaccio", "Merlot"
+- Use natural, appetizing English
+- Professional restaurant tone
+- Short and clear
+- Do NOT include "Description:" or any other labels
+
+Examples:
+"Franse uiensoep" → "French Onion Soup"
+"Biefstuk Tolhuis" → "Tolhuis Steak"
+"Salade van de maand" → "Salad of the Month"
+"Hap van het seizoen" → "Seasonal Dish"
+
+Translate ONLY the title: ${title}`;
+
+  const aiTitle = await generateAIDescriptionClientSide(prompt, 'en');
+  
+  // Also translate description if provided
+  let aiDescription = '';
+  if (description && description.trim() !== '') {
+    const descPrompt = `Translate this Dutch restaurant dish description to English:
+
+Dutch Description: ${description}
+
+Guidelines:
+- Translate to natural, appetizing English
+- Keep proper names as-is: "Carpaccio", "Merlot"
+- Professional restaurant tone
+- Make it sound delicious and appealing
+- Do NOT include "Description:" or any other labels
+
+Return ONLY the English description, nothing else.`;
+    
+    aiDescription = await generateAIDescriptionClientSide(descPrompt, 'en');
+  }
+  
+  if (aiTitle) {
+    return {
+      title_en: aiTitle.trim(),
+      description_en: aiDescription ? aiDescription.trim() : description || ''
+    };
+  }
+  
+  return { title_en: title, description_en: description };
 }

@@ -177,9 +177,9 @@ export function translateText(text, lang = 'en') {
  * Vertaal een volledig gerecht object
  * @param {Object} dish - Gerecht object
  * @param {string} lang - Doeltaal
- * @returns {Object} - Vertaald gerecht object
+ * @returns {Promise<Object>} - Vertaald gerecht object
  */
-export function translateDish(dish, lang = 'en') {
+export async function translateDish(dish, lang = 'en') {
   if (!dish || lang === 'nl') {
     return dish;
   }
@@ -194,12 +194,42 @@ export function translateDish(dish, lang = 'en') {
   });
   
   // Use pre-translated fields from Google Sheets if available
-  const titleEn = dish.title_en || dish.titleEn;
-  const descEn = dish.description_en || dish.descriptionEn;
+  let titleEn = dish.title_en || dish.titleEn;
+  let descEn = dish.description_en || dish.descriptionEn;
+  
+  // If no manual translation exists, use AI translation (with cache check)
+  if (!titleEn || titleEn.trim() === '') {
+    console.log('🌐 No manual translation found, checking AI cache or generating...');
+    
+    // Check if we already have cached AI translation in dish object
+    if (dish.ai_title_en && dish.ai_title_en.trim() !== '') {
+      console.log('📦 Using cached AI translation from Sheets');
+      titleEn = dish.ai_title_en;
+      descEn = dish.ai_description_en || descEn;
+    } else {
+      // Generate AI translation
+      try {
+        const { generateDishTranslation } = await import('./openaiProxy.js');
+        const aiTranslation = await generateDishTranslation({
+          title: dish.title || dish.name,
+          description: dish.description || dish.desc || ''
+        });
+        
+        titleEn = aiTranslation.title_en;
+        descEn = aiTranslation.description_en || descEn;
+        
+        // TODO: Save to Sheets cache (kolom M/N)
+        console.log('💾 AI translation generated (cache to Sheets not yet implemented)');
+      } catch (error) {
+        console.warn('⚠️ AI translation failed, using original:', error);
+        titleEn = dish.title || dish.name;
+      }
+    }
+  }
   
   const result = {
     ...dish,
-    // Use Sheets translations ONLY - no fallback to prevent Dinglisch
+    // Use manual Sheets translations, AI translations, or fallback to original
     name: titleEn || dish.name || dish.title,
     title: titleEn || dish.title || dish.name,
     desc: descEn || dish.desc || dish.description,
