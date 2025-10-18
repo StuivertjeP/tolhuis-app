@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { i18n, quotes, demo, focusRing, recordEvent, sentenceCase, tasteToCode, getContextSignals, gpt5RankDishes, pickPairings, gpt5PairingCopy, removeEmojisFromTaste, generateChefRecommendationTitle } from "../App.js";
+import { i18n, quotes, demo, focusRing, recordEvent, sentenceCase, tasteToCode, getContextSignals, gpt5RankDishes, pickPairings, gpt5PairingCopy, generateChefRecommendationTitle } from "../App.js";
 import { translateDish } from "../utils/translationService.js";
 import { getCurrentPeriod, clearPeriodCache, getWeekmenuData, clearWeekmenuCache, getPairingData, clearPairingCache, getMenuData, clearMenuCache, generateAIPairings, getSmartBubblesData } from "../services/sheetsService.js";
 import { generatePairingDescription, generateContextHint, generateSmartUpsell } from "../utils/openaiProxy.js";
@@ -74,10 +74,17 @@ function Hero({ src, alt = "Cafe 't Tolhuis", children }){
 }
 
 function LangSwitchInline({ lang, onChange, className='' }){
+  const handleLangChange = (newLang) => {
+    console.log(`Language switch clicked: ${lang} → ${newLang}`);
+    console.log(`Current lang state: ${lang}`);
+    onChange(newLang);
+    console.log(`Called onChange with: ${newLang}`);
+  };
+  
   return (
     <div className={`flex items-center gap-1 bg-white/70 backdrop-blur px-2 py-1 rounded-full border border-amber-900/10 shadow-sm ${className}`}>
-      <button aria-label="Nederlands" className={`px-2 py-1 rounded-full text-xs ${lang==='nl'? 'bg-amber-700 text-white' : 'text-amber-900'}`} onClick={()=>onChange('nl')}>🇳🇱 {i18n.nl.langShort}</button>
-      <button aria-label="English" className={`px-2 py-1 rounded-full text-xs ${lang==='en'? 'bg-amber-700 text-white' : 'text-amber-900'}`} onClick={()=>onChange('en')}>🇬🇧 {i18n.en.langShort}</button>
+      <button aria-label="Nederlands" className={`px-2 py-1 rounded-full text-xs ${lang==='nl'? 'bg-amber-700 text-white' : 'text-amber-900'}`} onClick={()=>handleLangChange('nl')}>🇳🇱 {i18n.nl.langShort}</button>
+      <button aria-label="English" className={`px-2 py-1 rounded-full text-xs ${lang==='en'? 'bg-amber-700 text-white' : 'text-amber-900'}`} onClick={()=>handleLangChange('en')}>🇬🇧 {i18n.en.langShort}</button>
     </div>
   );
 }
@@ -211,7 +218,7 @@ function SpecialsCard({ specials, lang }){
                 description: item.description || item.desc || ''
               });
               translations[itemId] = translation;
-              console.log(`✅ Weekmenu AI translation for ${item.name}:`, translation);
+              console.log(`Weekmenu AI translation for ${item.name}:`, translation);
             } catch (error) {
               console.warn(`AI translation failed for ${item.name}:`, error);
               // Use simple fallback
@@ -356,11 +363,12 @@ function isDeHoopDish(dish) {
   return false;
 }
 
-function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingText, setCurrentPairing, setShowPairingCard, showPairingCard, weather, weatherCategory }){
+function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingText, setCurrentPairing, setShowPairingCard, showPairingCard, weather, weatherCategory, preloadedTranslations, pairingTranslations }){
   
   const [currentPairing, setLocalCurrentPairing] = useState(null);
   const [aiTranslation, setAiTranslation] = useState(null);
   const [isLoadingTranslation, setIsLoadingTranslation] = useState(false);
+  const [pairingTranslation, setPairingTranslation] = useState(null);
   
   useEffect(()=>{ recordEvent({ type:'dish_view', dish: dish.id }); }, [dish?.id]);
   
@@ -396,7 +404,14 @@ function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingT
         return;
       }
       
-      // Generate AI translation
+      // Check if pre-loaded translation exists
+      const dishId = dish.id || `${dish.name}-${dish.title}`;
+      if (preloadedTranslations && preloadedTranslations[dishId]) {
+        setAiTranslation(preloadedTranslations[dishId]);
+        return;
+      }
+      
+      // Generate AI translation (fallback)
       setIsLoadingTranslation(true);
       try {
         const { generateDishTranslation } = await import('../utils/openaiProxy.js');
@@ -406,7 +421,7 @@ function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingT
         });
         setAiTranslation(translation);
       } catch (error) {
-        console.warn('❌ AI translation failed:', error);
+        console.warn('AI translation failed:', error);
         setAiTranslation(null);
       } finally {
         setIsLoadingTranslation(false);
@@ -414,7 +429,45 @@ function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingT
     };
     
     loadAITranslation();
-  }, [lang, dish.title, dish.name, dish.title_en, dish.description_en, dish.ai_title_en]);
+  }, [lang, dish.title, dish.name, dish.title_en, dish.description_en, dish.ai_title_en, preloadedTranslations]);
+  
+  // Simple pairing translation
+  useEffect(() => {
+    const translatePairing = async () => {
+      console.log('Pairing translation useEffect triggered:', { lang, pairingsLength: pairings?.length, dishName: dish.name });
+      
+      if (lang !== 'en' || !pairings || pairings.length === 0) {
+        console.log('Pairing translation skipped:', { lang, pairingsLength: pairings?.length });
+        setPairingTranslation(null);
+        return;
+      }
+      
+      const pairing = pairings[0];
+      console.log('Checking pairing:', { suggestion: pairing.suggestion, suggestion_en: pairing.suggestion_en });
+      
+      if (pairing.suggestion_en && pairing.suggestion_en.trim() !== '') {
+        console.log('Using manual translation:', pairing.suggestion_en);
+        setPairingTranslation(null); // Use manual translation
+        return;
+      }
+      
+      console.log('Generating AI translation for pairing:', pairing.suggestion);
+      try {
+        const { generateDishTranslation } = await import('../utils/openaiProxy.js');
+        const translation = await generateDishTranslation({
+          title: pairing.suggestion,
+          description: ''
+        });
+        console.log('Pairing translation completed:', translation.title_en);
+        setPairingTranslation(translation.title_en);
+      } catch (error) {
+        console.warn('Pairing translation failed:', error);
+        setPairingTranslation(null);
+      }
+    };
+    
+    translatePairing();
+  }, [lang, pairings]);
   
   
   // SIMPLE TRANSLATION: If English, use columns N and O from Google Sheets
@@ -510,11 +563,83 @@ function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingT
   ]);
   
   const fishSupplierLogo = useImageCandidate([
+    'w-a-fish.png',
+    '/w-a-fish.png',
     'fish-supplier.png',
     '/fish-supplier.png',
     'fish.png',
     '/fish.png'
   ]);
+
+  // Menu category icons - temporarily removed to fix error
+  
+  // WhatsApp Opt-in Modal State
+  const [showOptInModal, setShowOptInModal] = useState(false);
+  const [optInData, setOptInData] = useState({ name: '', phone: '' });
+  const [isSubmittingOptIn, setIsSubmittingOptIn] = useState(false);
+  
+  // Opt-in modal trigger logic
+  useEffect(() => {
+    if (step === 4) { // Only show on menu page
+      const timer = setTimeout(() => {
+        // Check if user hasn't already opted in (you could check localStorage)
+        const hasOptedIn = localStorage.getItem('tolhuis-optin');
+        if (!hasOptedIn) {
+          setShowOptInModal(true);
+        }
+      }, 30000); // Show after 30 seconds
+      
+      return () => clearTimeout(timer);
+    }
+  }, [step]);
+  
+  // Function to submit opt-in data to Google Sheets
+  const submitOptInData = async () => {
+    if (!optInData.name.trim() || !optInData.phone.trim()) {
+      alert(lang === 'nl' ? 'Vul beide velden in' : 'Please fill in both fields');
+      return;
+    }
+    
+    setIsSubmittingOptIn(true);
+    
+    try {
+      // Create a simple form data object
+      const formData = new FormData();
+      formData.append('name', optInData.name.trim());
+      formData.append('phone', optInData.phone.trim());
+      formData.append('timestamp', new Date().toISOString());
+      formData.append('user_agent', navigator.userAgent);
+      formData.append('venue', 'tolhuis');
+      
+      // Send to Google Sheets via a simple webhook or form submission
+      // For now, we'll use a simple approach with Google Forms
+      const googleFormUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSdYOUR_FORM_ID/formResponse';
+      const formResponse = await fetch(googleFormUrl, {
+        method: 'POST',
+        body: formData,
+        mode: 'no-cors' // This allows the request to go through
+      });
+      
+      // Mark as opted in
+      localStorage.setItem('tolhuis-optin', 'true');
+      setShowOptInModal(false);
+      
+      // Show success message
+      alert(lang === 'nl' ? 
+        'Bedankt! We nemen binnenkort contact met je op via WhatsApp.' : 
+        'Thank you! We will contact you soon via WhatsApp.'
+      );
+      
+    } catch (error) {
+      console.error('Error submitting opt-in data:', error);
+      alert(lang === 'nl' ? 
+        'Er ging iets mis. Probeer het later opnieuw.' : 
+        'Something went wrong. Please try again later.'
+      );
+    } finally {
+      setIsSubmittingOptIn(false);
+    }
+  };
   
   const deHoopLogo = useImageCandidate([
     'Logo-De-Hoop-zwart-goud.svg',
@@ -605,9 +730,9 @@ function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingT
                         <button 
                           className={`px-3 py-2 rounded-full text-[11px] sm:text-[12px] bg-amber-600 text-amber-50 shadow transition-all duration-300 hover:scale-105 hover:shadow-lg ${focusRing}`}
                          onClick={handlePairingClick}
-                          aria-label={`Pairing: ${lang === 'en' ? (pairings[0].suggestion_en || pairings[0].suggestion) : pairings[0].suggestion}`}
+                          aria-label={`Pairing: ${lang === 'en' ? (pairings[0].suggestion_en || pairingTranslation || pairings[0].suggestion) : pairings[0].suggestion}`}
                         >
-                          {t.pairingChip(lang === 'en' ? (pairings[0].suggestion_en || pairings[0].suggestion) : pairings[0].suggestion)}
+                          {t.pairingChip(lang === 'en' ? (pairings[0].suggestion_en || pairingTranslation || pairings[0].suggestion) : pairings[0].suggestion)}
                         </button>
                      </div>
                    )}
@@ -993,7 +1118,7 @@ function PairingSlideCard({ pairing, dish, venue, lang, isOpen, onClose, weather
         setTimeout(() => {
           onClose();
         }, 500);
-      }, 6000);
+      }, 8000);
       
       setAutoCloseTimer(timer);
       
@@ -1050,7 +1175,7 @@ function PairingSlideCard({ pairing, dish, venue, lang, isOpen, onClose, weather
                     } else {
                       // PRIORITY 4: Loading state (only if actively generating)
                       if (isLoadingAI) {
-                        baseDescription = lang === 'en' ? '✨ ...' : '✨ ...';
+                        baseDescription = lang === 'en' ? '...' : '...';
                       } else {
                         // PRIORITY 5: Fallback
                         baseDescription = lang === 'en' ? 'Perfect combination!' : 'Perfecte combinatie!';
@@ -1060,7 +1185,7 @@ function PairingSlideCard({ pairing, dish, venue, lang, isOpen, onClose, weather
                 }
                 
                 // Add subtle context-aware recommendations (only when it feels natural)
-                if (contextHint && baseDescription && !baseDescription.includes('✨ ...')) {
+                if (contextHint && baseDescription && !baseDescription.includes('...')) {
                   // Only add context for specific weather conditions that make sense
                   const shouldAddContext = weatherCategory === 'rain' || weatherCategory === 'snow' || weatherCategory === 'cold' || weatherCategory === 'hot_sunny' || (weatherCategory === 'clouds_cool' && getCurrentSeason() === 'herfst');
                   
@@ -1078,10 +1203,22 @@ function PairingSlideCard({ pairing, dish, venue, lang, isOpen, onClose, weather
               })()}
             </p>
             
-            {/* Swipe hint */}
-            <p className="text-xs text-yellow-800/70 text-center mt-3">
-              {lang === 'nl' ? 'Veeg naar beneden om te sluiten' : 'Swipe down to close'}
-            </p>
+            {/* Close button */}
+            <div className="absolute top-3 right-3">
+              <button 
+                onClick={() => {
+                  setIsVisible(false);
+                  if (autoCloseTimer) {
+                    clearTimeout(autoCloseTimer);
+                    setAutoCloseTimer(null);
+                  }
+                  setTimeout(onClose, 300);
+                }}
+                className="w-6 h-6 text-amber-800 hover:text-amber-900 transition-colors flex items-center justify-center text-lg font-bold"
+              >
+                ×
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1097,8 +1234,25 @@ function App(){
   // Start in NL, remember last choice if present
   const [lang, setLang] = useState(() => { try { return localStorage.getItem('lang') || 'nl'; } catch { return 'nl'; } });
   const t = i18n[lang];
+  
+  // Debug language changes
+  useEffect(() => {
+    console.log(`🌍 Language changed to: ${lang}`);
+    try {
+      localStorage.setItem('lang', lang);
+    } catch (e) {
+      console.warn('Could not save language to localStorage:', e);
+    }
+  }, [lang]);
+  
+  // Force re-render when language changes
+  const handleLangChange = (newLang) => {
+    console.log(`🔄 App handleLangChange: ${lang} → ${newLang}`);
+    setLang(newLang);
+    console.log(`🔄 App setLang called with: ${newLang}`);
+  };
   const [step, setStep] = useState(0); // 0=intro,1=taste,2=diet,3=name,4=menu
-  const [user, setUser] = useState({ name:'', diet:'meat', taste:'✨ Licht & Fris', phone:'' });
+  const [user, setUser] = useState({ name:'', diet:'meat', taste:'Licht & Fris', phone:'' });
   const [menuFilters, setMenuFilters] = useState({ vegetarian: false, glutenFree: false });
   const [toast, setToast] = useState({ open:false, text:'' });
   const [showPairingCard, setShowPairingCard] = useState(false);
@@ -1138,14 +1292,145 @@ function App(){
   const [selectedMenuCategory, setSelectedMenuCategory] = useState(getDefaultMenuCategory());
   const [selectedDrinksSubcategory, setSelectedDrinksSubcategory] = useState('all'); // Default to all drinks
   const [chefRecommendationTitle, setChefRecommendationTitle] = useState('');
+  const [preloadedTranslations, setPreloadedTranslations] = useState({});
+  
+  // Pre-load AI translations for all dishes (weekmenu + regular menu)
+  useEffect(() => {
+    const preloadAllTranslations = async () => {
+      if (!weekmenuData || weekmenuData.length === 0) return;
+      
+      try {
+        const { generateDishTranslation } = await import('../utils/openaiProxy.js');
+        const translations = {};
+        
+        // Process ALL weekmenu items (no limit - dynamic based on Google Sheets)
+        console.log(`🔄 Pre-loading translations for ${weekmenuData.length} weekmenu items...`);
+        for (const dish of weekmenuData) {
+          const dishId = dish.id || `${dish.name}-${dish.title}`;
+          
+          // Skip if manual translation exists
+          if (dish.title_en && dish.title_en.trim() !== '' && dish.description_en && dish.description_en.trim() !== '') {
+            console.log(`⏭️ Skipping ${dish.name} - manual translation exists`);
+            continue;
+          }
+          
+          // Skip if already cached
+          if (dish.ai_title_en && dish.ai_title_en.trim() !== '') {
+            console.log(`⏭️ Skipping ${dish.name} - AI cache exists`);
+            continue;
+          }
+          
+          // Generate AI translation
+          try {
+            console.log(`🤖 Generating AI translation for ${dish.name}...`);
+            const translation = await generateDishTranslation({
+              title: dish.title || dish.name,
+              description: dish.description || dish.desc || ''
+            });
+            translations[dishId] = translation;
+            console.log(`✅ Pre-loaded translation for ${dish.name}:`, translation);
+          } catch (error) {
+            console.warn(`❌ Pre-load failed for ${dish.name}:`, error);
+          }
+        }
+        
+        // Also pre-load translations for top ranked dishes (including specialDish)
+        if (ranked && ranked.length > 0) {
+          const topDishes = ranked.slice(0, 10); // Pre-load top 10 dishes to catch specialDish
+          console.log(`🔄 Pre-loading translations for top ${topDishes.length} ranked dishes...`);
+          for (const dish of topDishes) {
+            const dishId = dish.id || `${dish.name}-${dish.title}`;
+            
+            // Skip if already processed or manual translation exists
+            if (translations[dishId] || (dish.title_en && dish.title_en.trim() !== '' && dish.description_en && dish.description_en.trim() !== '')) {
+              continue;
+            }
+            
+            // Skip if already cached
+            if (dish.ai_title_en && dish.ai_title_en.trim() !== '') {
+              continue;
+            }
+            
+            // Generate AI translation
+            try {
+              console.log(`🤖 Generating AI translation for top dish ${dish.name}...`);
+              const translation = await generateDishTranslation({
+                title: dish.title || dish.name,
+                description: dish.description || dish.desc || ''
+              });
+              translations[dishId] = translation;
+              console.log(`✅ Pre-loaded translation for top dish ${dish.name}:`, translation);
+            } catch (error) {
+              console.warn(`❌ Pre-load failed for top dish ${dish.name}:`, error);
+            }
+          }
+        }
+        
+        // Also pre-load translations for personal recommendations
+        if (personalRecommendations && personalRecommendations.length > 0) {
+          console.log(`🔄 Pre-loading translations for ${personalRecommendations.length} personal recommendations...`);
+          for (const dish of personalRecommendations) {
+            const dishId = dish.id || `${dish.name}-${dish.title}`;
+            
+            // Skip if already processed or manual translation exists
+            if (translations[dishId] || (dish.title_en && dish.title_en.trim() !== '' && dish.description_en && dish.description_en.trim() !== '')) {
+              continue;
+            }
+            
+            // Skip if already cached
+            if (dish.ai_title_en && dish.ai_title_en.trim() !== '') {
+              continue;
+            }
+            
+            // Generate AI translation
+            try {
+              console.log(`🤖 Generating AI translation for personal recommendation ${dish.name}...`);
+              const translation = await generateDishTranslation({
+                title: dish.title || dish.name,
+                description: dish.description || dish.desc || ''
+              });
+              translations[dishId] = translation;
+              console.log(`✅ Pre-loaded translation for personal recommendation ${dish.name}:`, translation);
+            } catch (error) {
+              console.warn(`❌ Pre-load failed for personal recommendation ${dish.name}:`, error);
+            }
+          }
+        }
+        
+        // Also pre-load translations for common pairings
+        console.log(`🔄 Pre-loading translations for common pairings...`);
+        const commonPairings = ['Speciaal biertje', 'Huiswijn', 'Cappuccino', 'Espresso', 'Thee', 'Frisdrank'];
+        for (const pairing of commonPairings) {
+          try {
+            console.log(`🤖 Generating AI translation for pairing ${pairing}...`);
+            const translation = await generateDishTranslation({
+              title: pairing,
+              description: ''
+            });
+            translations[`pairing_${pairing}`] = translation;
+            console.log(`✅ Pre-loaded pairing translation for ${pairing}:`, translation);
+          } catch (error) {
+            console.warn(`❌ Pre-load failed for pairing ${pairing}:`, error);
+          }
+        }
+        
+        setPreloadedTranslations(translations);
+        console.log('🎯 Pre-loaded translations:', translations);
+      } catch (error) {
+        console.warn('❌ Pre-loading translations failed:', error);
+      }
+    };
+    
+    preloadAllTranslations();
+  }, [weekmenuData, ranked, personalRecommendations]);
   
   // Smart bubble upsell trigger
   const triggerSmartBubble = async () => {
     const now = Date.now();
     const timeSinceLastBubble = now - lastBubbleTime;
     
-    // Don't show bubbles too frequently (min 30 seconds apart)
-    if (timeSinceLastBubble < 30000) {
+    // Don't show bubbles too frequently (min 15 seconds apart)
+    if (timeSinceLastBubble < 15000) {
       console.log('🎯 Bubble cooldown active, skipping...');
       return;
     }
@@ -1185,12 +1470,20 @@ function App(){
       // Show first bubble after 10 seconds on menu page
       const timer1 = setTimeout(triggerSmartBubble, 10000);
       
-      // Show second bubble after 60 seconds if still on page
-      const timer2 = setTimeout(triggerSmartBubble, 60000);
+      // Show second bubble after 30 seconds
+      const timer2 = setTimeout(triggerSmartBubble, 30000);
+      
+      // Show third bubble after 60 seconds
+      const timer3 = setTimeout(triggerSmartBubble, 60000);
+      
+      // Show fourth bubble after 90 seconds
+      const timer4 = setTimeout(triggerSmartBubble, 90000);
       
       return () => {
         clearTimeout(timer1);
         clearTimeout(timer2);
+        clearTimeout(timer3);
+        clearTimeout(timer4);
       };
     }
   }, [step, weather, user.taste, weatherCategory, lang]);
@@ -1749,7 +2042,7 @@ function App(){
         console.log('🌤️ Weather loaded:', weatherData, '- Category:', category, '- Time:', timeOfDay, '- Season:', season, '- Welcome:', welcomeMsg);
       } catch (error) {
         console.warn('Could not load weather:', error);
-        setWelcomeMessage(lang === 'nl' ? 'Fijn dat je er bent! ✨' : 'Great to see you! ✨');
+        setWelcomeMessage(lang === 'nl' ? 'Fijn dat je er bent!' : 'Great to see you!');
       }
     };
     
@@ -2298,7 +2591,7 @@ function App(){
       {step===0 && (
         <main className="max-w-screen-sm mx-auto px-4 py-4 text-center relative">
           {/* Language switch in top-right */}
-          <LangSwitchInline lang={lang} onChange={setLang} className="absolute top-4 right-4" />
+          <LangSwitchInline lang={lang} onChange={handleLangChange} className="absolute top-4 right-4" />
           
           <BrandHeader showIntroImage={true} />
           
@@ -2333,7 +2626,7 @@ function App(){
             </StepCard>
           )}
           {step===3 && (
-            <StepCard title={t.name} onBack={()=>setStep(2)} onNext={()=>setStep(4)} backLabel={t.back} nextLabel={t.next}>
+            <StepCard title={t.name} onBack={()=>setStep(2)} onNext={()=>{console.log('Moving to step 4'); setStep(4);}} backLabel={t.back} nextLabel={t.next}>
               <NameStep lang={lang} value={user.name} onChange={(name)=>setUser({...user, name})} />
             </StepCard>
           )}
@@ -2345,12 +2638,13 @@ function App(){
       {/* Menu */}
       {step===4 && (
         <main className="max-w-screen-sm mx-auto px-4 py-4 pb-40">
+          {console.log('Rendering step 4 - Menu')}
           <Hero>
             {/* Language switch in hero top-right */}
             <LangSwitchInline 
               lang={lang} 
               onChange={(newLang) => {
-                console.log('🌍 Language switch clicked:', lang, '→', newLang);
+                console.log('Language switch clicked:', lang, '→', newLang);
                 setLang(newLang);
                 // Clear caches for stability
                 setDishPairings({});
@@ -2362,7 +2656,7 @@ function App(){
           <BrandHeader />
           <div className="font-[ui-serif] text-2xl sm:text-xl text-center mt-4">
             {user.name ? (
-              <span>{lang === 'nl' ? `Hi ${user.name}! ${welcomeMessage || 'Fijn dat je er bent! ✨'}` : `Hi ${user.name}! ${welcomeMessage || 'Great to see you! ✨'}`}</span>
+              <span>{lang === 'nl' ? `Hi ${user.name}! ${welcomeMessage || 'Fijn dat je er bent!'}` : `Hi ${user.name}! ${welcomeMessage || 'Great to see you!'}`}</span>
             ) : (
               <span>{welcomeMessage || (lang === 'nl' ? 'Waar heb je zin in?' : 'What do you feel like?')}</span>
             )}
@@ -2374,7 +2668,7 @@ function App(){
               {/* Taste buttons */}
               <div className="flex items-center gap-1 flex-wrap justify-center">
                 {i18n[lang].tastes.map(({label, code})=> (
-                  <button key={code} onClick={()=>{setUser({...user, taste: label}); setDishPairings({});}} className={`px-4 py-2 rounded-full border text-sm whitespace-nowrap ${tasteToCode(user.taste)===code ? 'bg-amber-700 text-amber-50' : 'bg-white/70'} ${focusRing}`} aria-pressed={tasteToCode(user.taste)===code}>{removeEmojisFromTaste(label)}</button>
+                  <button key={code} onClick={()=>{setUser({...user, taste: label}); setDishPairings({});}} className={`px-4 py-2 rounded-full border text-sm whitespace-nowrap ${tasteToCode(user.taste)===code ? 'bg-amber-700 text-amber-50' : 'bg-white/70'} ${focusRing}`} aria-pressed={tasteToCode(user.taste)===code}>{label.replace(/[✨🍲🌟]/g, '').trim()}</button>
                 ))}
               </div>
               
@@ -2389,7 +2683,7 @@ function App(){
                       : 'bg-white/70 text-amber-900 border-amber-300 hover:bg-green-50'
                   }`}
                 >
-                  {lang === 'nl' ? '🥬 Vegetarisch' : '🥬 Vegetarian'}
+                  {lang === 'nl' ? 'Vegetarisch' : 'Vegetarian'}
                 </button>
                 
                 <button
@@ -2416,12 +2710,12 @@ function App(){
             <div className="grid gap-3">
               {/* 1 weekmenu item (only if available) */}
               {specialDish && (
-                <DishCardWithPairings key={specialDish.id} lang={lang} venue={venue} dish={specialDish} generatePairingsForDish={generatePairingsForDish} generatePairingText={generatePairingText} setCurrentPairing={setCurrentPairing} setShowPairingCard={setShowPairingCard} showPairingCard={showPairingCard} onShowPairing={handleShowPairing} weather={weather} weatherCategory={weatherCategory} />
+                <DishCardWithPairings key={specialDish.id} lang={lang} venue={venue} dish={specialDish} generatePairingsForDish={generatePairingsForDish} generatePairingText={generatePairingText} setCurrentPairing={setCurrentPairing} setShowPairingCard={setShowPairingCard} showPairingCard={showPairingCard} onShowPairing={handleShowPairing} weather={weather} weatherCategory={weatherCategory} preloadedTranslations={preloadedTranslations} />
               )}
               
               {/* 2 personal recommendations from regular menu */}
               {personalRecommendations.slice(0, 2).map(dish => (
-                <DishCardWithPairings key={dish.id} lang={lang} venue={venue} dish={dish} generatePairingsForDish={generatePairingsForDish} generatePairingText={generatePairingText} setCurrentPairing={setCurrentPairing} setShowPairingCard={setShowPairingCard} showPairingCard={showPairingCard} onShowPairing={handleShowPairing} weather={weather} weatherCategory={weatherCategory} />
+                <DishCardWithPairings key={dish.id} lang={lang} venue={venue} dish={dish} generatePairingsForDish={generatePairingsForDish} generatePairingText={generatePairingText} setCurrentPairing={setCurrentPairing} setShowPairingCard={setShowPairingCard} showPairingCard={showPairingCard} onShowPairing={handleShowPairing} weather={weather} weatherCategory={weatherCategory} preloadedTranslations={preloadedTranslations} />
               ))}
             </div>
           </section>
@@ -2433,7 +2727,7 @@ function App(){
               <div className="grid gap-4">
                 {weekmenuData.map(dish => {
                   return (
-                    <DishCardWithPairings key={dish.id} lang={lang} venue={venue} dish={dish} generatePairingsForDish={generatePairingsForDish} generatePairingText={generatePairingText} setCurrentPairing={setCurrentPairing} setShowPairingCard={setShowPairingCard} showPairingCard={showPairingCard} onShowPairing={handleShowPairing} weather={weather} weatherCategory={weatherCategory} />
+                    <DishCardWithPairings key={dish.id} lang={lang} venue={venue} dish={dish} generatePairingsForDish={generatePairingsForDish} generatePairingText={generatePairingText} setCurrentPairing={setCurrentPairing} setShowPairingCard={setShowPairingCard} showPairingCard={showPairingCard} onShowPairing={handleShowPairing} weather={weather} weatherCategory={weatherCategory} preloadedTranslations={preloadedTranslations} />
                   );
                 })}
               </div>
@@ -2458,7 +2752,10 @@ function App(){
                       : 'bg-white/70 text-amber-900 border border-amber-300 hover:bg-amber-100'
                   }`}
                 >
-                  {lang === 'nl' ? '🌅 Ontbijt' : '🌅 Breakfast'}
+                  <div className="flex items-center gap-2">
+                    <img src="ontbijt.png" alt="" className="w-4 h-4" />
+                    {lang === 'nl' ? 'Ontbijt' : 'Breakfast'}
+                  </div>
                 </button>
                 
                 <button
@@ -2469,7 +2766,10 @@ function App(){
                       : 'bg-white/70 text-amber-900 border border-amber-300 hover:bg-amber-100'
                   }`}
                 >
-                  {lang === 'nl' ? '🥪 Lunch' : '🥪 Lunch'}
+                  <div className="flex items-center gap-2">
+                    <img src="lunch.png" alt="" className="w-4 h-4" />
+                    {lang === 'nl' ? 'Lunch' : 'Lunch'}
+                  </div>
                 </button>
                 
                 <button
@@ -2480,7 +2780,10 @@ function App(){
                       : 'bg-white/70 text-amber-900 border border-amber-300 hover:bg-amber-100'
                   }`}
                 >
-                  {lang === 'nl' ? '🦪 Voorgerecht' : '🦪 Starter'}
+                  <div className="flex items-center gap-2">
+                    <img src="voorgerecht.png" alt="" className="w-4 h-4" />
+                    {lang === 'nl' ? 'Voorgerecht' : 'Starter'}
+                  </div>
                 </button>
               </div>
               
@@ -2494,7 +2797,10 @@ function App(){
                       : 'bg-white/70 text-amber-900 border border-amber-300 hover:bg-amber-100'
                   }`}
                 >
-                  {lang === 'nl' ? '🍽️ Diner' : '🍽️ Dinner'}
+                  <div className="flex items-center gap-2">
+                    <img src="diner.png" alt="" className="w-4 h-4" />
+                    {lang === 'nl' ? 'Diner' : 'Dinner'}
+                  </div>
                 </button>
                 
                 <button
@@ -2505,7 +2811,10 @@ function App(){
                       : 'bg-white/70 text-amber-900 border border-amber-300 hover:bg-amber-100'
                   }`}
                 >
-                  {lang === 'nl' ? '🍰 Dessert' : '🍰 Dessert'}
+                  <div className="flex items-center gap-2">
+                    <img src="dessert.png" alt="" className="w-4 h-4" />
+                    {lang === 'nl' ? 'Dessert' : 'Dessert'}
+                  </div>
                 </button>
                 
                 <button
@@ -2516,7 +2825,10 @@ function App(){
                       : 'bg-white/70 text-amber-900 border border-amber-300 hover:bg-amber-100'
                   }`}
                 >
-                  {lang === 'nl' ? '🍻 Borrel' : '🍻 Snacks'}
+                  <div className="flex items-center gap-2">
+                    <img src="borrel.png" alt="" className="w-4 h-4" />
+                    {lang === 'nl' ? 'Borrel' : 'Snacks'}
+                  </div>
                 </button>
               </div>
               
@@ -2544,7 +2856,7 @@ function App(){
                 };
                 
                 return (
-                  <DishCardWithPairings key={item.id} lang={lang} venue={venue} dish={dish} generatePairingsForDish={generatePairingsForDish} generatePairingText={generatePairingText} setCurrentPairing={setCurrentPairing} setShowPairingCard={setShowPairingCard} showPairingCard={showPairingCard} onShowPairing={handleShowPairing} />
+                  <DishCardWithPairings key={item.id} lang={lang} venue={venue} dish={dish} generatePairingsForDish={generatePairingsForDish} generatePairingText={generatePairingText} setCurrentPairing={setCurrentPairing} setShowPairingCard={setShowPairingCard} showPairingCard={showPairingCard} onShowPairing={handleShowPairing} preloadedTranslations={preloadedTranslations} />
                 );
               }) : (
                 <div className="text-center text-amber-700 py-8">
@@ -2556,8 +2868,9 @@ function App(){
             {/* Dranken kaart sectie */}
             {menuCategories.dranken?.length > 0 && (
               <div id="drankenkaart-anchor" className="mt-8">
-                <h3 className="font-['Sorts_Mill_Goudy'] mb-4" style={{fontSize: '1.2rem'}}>
-                  {lang === 'nl' ? '🍷 Drankenkaart' : '🍷 Drinks menu'}
+                <h3 className="font-['Sorts_Mill_Goudy'] mb-4 flex items-center gap-2" style={{fontSize: '1.2rem'}}>
+                  <img src="dranken.png" alt="" className="w-5 h-5" />
+                  {lang === 'nl' ? 'Drankenkaart' : 'Drinks menu'}
                 </h3>
                 
                 {/* Drinks subcategory buttons */}
@@ -2571,7 +2884,7 @@ function App(){
                           : 'bg-white/70 text-amber-900 border border-amber-300 hover:bg-amber-100'
                       }`}
                     >
-                      {lang === 'nl' ? '🍷 Alle dranken' : '🍷 All drinks'}
+                      {lang === 'nl' ? 'Alle dranken' : 'All drinks'}
                     </button>
                     
                     {drinksSubcategories.map(subcategory => (
@@ -2630,7 +2943,7 @@ function App(){
                     };
                     
                     return (
-                      <DishCardWithPairings key={item.id} lang={lang} venue={venue} dish={dish} generatePairingsForDish={generatePairingsForDish} generatePairingText={generatePairingText} setCurrentPairing={setCurrentPairing} setShowPairingCard={setShowPairingCard} showPairingCard={showPairingCard} onShowPairing={handleShowPairing} />
+                      <DishCardWithPairings key={item.id} lang={lang} venue={venue} dish={dish} generatePairingsForDish={generatePairingsForDish} generatePairingText={generatePairingText} setCurrentPairing={setCurrentPairing} setShowPairingCard={setShowPairingCard} showPairingCard={showPairingCard} onShowPairing={handleShowPairing} preloadedTranslations={preloadedTranslations} />
                     );
                   })}
                 </div>
@@ -2674,10 +2987,11 @@ function App(){
 }
 
 // Component that handles pairing generation
-function DishCardWithPairings({ venue, dish, onShowPairing, lang, generatePairingsForDish, generatePairingText, setCurrentPairing, setShowPairingCard, showPairingCard, weather, weatherCategory }) {
+function DishCardWithPairings({ venue, dish, onShowPairing, lang, generatePairingsForDish, generatePairingText, setCurrentPairing, setShowPairingCard, showPairingCard, weather, weatherCategory, preloadedTranslations }) {
   console.log('🎨 DishCardWithPairings RENDER for dish:', dish.name, 'ID:', dish.id, 'lang:', lang, 'full dish object:', dish);
   const [pairings, setPairings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pairingTranslations, setPairingTranslations] = useState({});
   
   useEffect(() => {
     const loadPairings = async () => {
@@ -2699,6 +3013,63 @@ function DishCardWithPairings({ venue, dish, onShowPairing, lang, generatePairin
     loadPairings();
   }, [dish.id, generatePairingsForDish, lang]); // Also reload when language changes
   
+  // Load AI translations for pairings if needed
+  useEffect(() => {
+    console.log(`🔄 Pairing translation useEffect triggered - lang: ${lang}, pairings: ${pairings?.length || 0}`);
+    
+    const loadPairingTranslations = async () => {
+      if (lang !== 'en' || !pairings || pairings.length === 0) {
+        console.log(`⏭️ Skipping pairing translations - lang: ${lang}, pairings: ${pairings?.length || 0}`);
+        setPairingTranslations({});
+        return;
+      }
+      
+      const translations = {};
+      let needsTranslation = false;
+      
+      for (const pairing of pairings) {
+        console.log(`🔍 Checking pairing: "${pairing.suggestion}" (suggestion_en: "${pairing.suggestion_en}")`);
+        
+        // Check if we need AI translation for this pairing
+        // Only translate if suggestion_en (kolom I) is empty
+        const isEmpty = !pairing.suggestion_en || pairing.suggestion_en.trim().length === 0;
+        
+        if (isEmpty) {
+          needsTranslation = true;
+          console.log(`🤖 Need AI translation for: "${pairing.suggestion}" (suggestion_en is empty)`);
+          
+          // Check preloaded translations first
+          const preloadedKey = `pairing_${pairing.suggestion}`;
+          if (preloadedTranslations && preloadedTranslations[preloadedKey]) {
+            translations[pairing.suggestion] = preloadedTranslations[preloadedKey];
+          } else {
+            // Generate AI translation
+            try {
+              const { generateDishTranslation } = await import('../utils/openaiProxy.js');
+              const translated = await generateDishTranslation({
+                title: pairing.suggestion, // Translate Dutch text from kolom C
+                description: ''
+              });
+              translations[pairing.suggestion] = translated.title;
+            } catch (error) {
+              console.error('Error translating pairing:', error);
+              translations[pairing.suggestion] = pairing.suggestion; // fallback
+            }
+          }
+        }
+      }
+      
+      if (needsTranslation) {
+        console.log(`✅ Setting pairing translations:`, translations);
+        setPairingTranslations(translations);
+      } else {
+        console.log(`⏭️ No pairing translations needed`);
+      }
+    };
+    
+    loadPairingTranslations();
+  }, [lang, pairings, preloadedTranslations]);
+  
   const pairingsToPass = loading ? [] : pairings;
   console.log('🔄 DishCardWithPairings passing pairings:', {
     dish: dish.name,
@@ -2710,21 +3081,23 @@ function DishCardWithPairings({ venue, dish, onShowPairing, lang, generatePairin
   
   try {
     console.log('🔄 DishCardWithPairings about to render DishCard for:', dish.name);
-    return (
-      <DishCard 
-        venue={venue} 
-        dish={dish} 
-        pairings={pairingsToPass} 
-        onShowPairing={onShowPairing} 
-        lang={lang} 
-        generatePairingText={generatePairingText}
-        setCurrentPairing={setCurrentPairing}
-        setShowPairingCard={setShowPairingCard}
-        showPairingCard={showPairingCard}
-        weather={weather}
-        weatherCategory={weatherCategory}
-      />
-    );
+  return (
+    <DishCard 
+      venue={venue} 
+      dish={dish} 
+      pairings={pairingsToPass} 
+      onShowPairing={onShowPairing} 
+      lang={lang} 
+             generatePairingText={generatePairingText}
+             setCurrentPairing={setCurrentPairing}
+             setShowPairingCard={setShowPairingCard}
+             showPairingCard={showPairingCard}
+             weather={weather}
+             weatherCategory={weatherCategory}
+             preloadedTranslations={preloadedTranslations}
+             pairingTranslations={pairingTranslations}
+           />
+         );
   } catch (error) {
     console.error('❌ Error in DishCardWithPairings rendering DishCard for', dish.name, error);
     return <div>Error rendering {dish.name}</div>;

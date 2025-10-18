@@ -465,17 +465,17 @@ function pickPairings({ dish, pairings, user, rules }){
 async function generateChefRecommendationTitle(userTaste, lang = 'nl') {
   // Roulerende chef recommendation titels (geen AI, geen kosten!)
   const titlesNL = [
-    'Speciaal voor jou geselecteerd ✨',
-    "Chef's keuze voor jou 👨‍🍳",
-    'Voor jou uitgekozen 🍽️',
-    'Onze aanbeveling ⭐'
+    'Speciaal voor jou geselecteerd',
+    "Chef's keuze voor jou",
+    'Voor jou uitgekozen',
+    'Onze aanbeveling'
   ];
   
   const titlesEN = [
-    'Specially selected for you ✨',
-    "Chef's choice for you 👨‍🍳",
-    'Picked for you 🍽️',
-    'Our recommendation ⭐'
+    'Specially selected for you',
+    "Chef's choice for you",
+    'Picked for you',
+    'Our recommendation'
   ];
   
   const titles = lang === 'nl' ? titlesNL : titlesEN;
