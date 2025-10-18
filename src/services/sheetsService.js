@@ -505,8 +505,9 @@ async function getAllSheetsData() {
  */
 async function getSmartBubblesData() {
   try {
-    // Use CSV export for SmartBubbles sheet (same as other sheets)
-    const url = `https://docs.google.com/spreadsheets/d/${SHEETS_CONFIG.spreadsheetId}/gviz/tq?tqx=out:csv&sheet=SmartBubbles`;
+    // Use CSV export for SmartBubbles sheet (same as other sheets) with cache busting
+    const timestamp = Date.now();
+    const url = `https://docs.google.com/spreadsheets/d/${SHEETS_CONFIG.spreadsheetId}/gviz/tq?tqx=out:csv&sheet=SmartBubbles&_t=${timestamp}`;
     const response = await fetch(url);
     
     if (!response.ok) {
@@ -540,8 +541,8 @@ async function getSmartBubblesData() {
     }).filter(row => row.some(cell => cell && cell !== ''));
     
     console.log('🎯 SmartBubbles parsed rows:', rows.length);
-    console.log('🎯 SmartBubbles first row:', rows[0]);
-    console.log('🎯 SmartBubbles second row:', rows[1]);
+    console.log('🎯 SmartBubbles header row:', rows[0]);
+    console.log('🎯 SmartBubbles data rows:', rows.slice(1));
     
     if (rows.length <= 1) {
       console.log('🎯 No SmartBubbles data found (only header or empty)');
@@ -571,6 +572,7 @@ async function getSmartBubblesData() {
     }).filter(Boolean);
     
     console.log('🎯 SmartBubbles processed:', smartBubbles.length, 'items');
+    console.log('🎯 SmartBubbles items:', smartBubbles.map(item => `${item.dish_name} (${item.active ? 'active' : 'inactive'})`));
     return smartBubbles;
     
     } catch (error) {

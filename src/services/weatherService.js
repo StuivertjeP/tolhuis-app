@@ -198,18 +198,18 @@ export function getWelcomeMessage(weather = null, season = 'herfst', timeOfDay =
   // Dutch welcome messages (original logic with more variety)
   if (timeOfDay === 'ochtend') {
     const morningMessages = [
-      "Goedemorgen! Fijn dat je er bent! ☀️",
-      "Morgen! Welkom bij 't Tolhuis! 🌅",
-      "Goedemorgen! Klaar voor het ontbijt? 🥐"
+      "Goedemorgen! Fijn dat je er bent!",
+      "Morgen! Welkom bij 't Tolhuis!",
+      "Goedemorgen! Klaar voor het ontbijt?"
     ];
     return morningMessages[Math.floor(Math.random() * morningMessages.length)];
   }
   
   if (timeOfDay === 'middag') {
     const afternoonMessages = [
-      "Goedemiddag! Fijn dat je er bent! 🌤️",
-      "Middag! Welkom bij 't Tolhuis! ☀️",
-      "Goedemiddag! Klaar voor de lunch? 🍽️"
+      "Goedemiddag! Fijn dat je er bent!",
+      "Middag! Welkom bij 't Tolhuis!",
+      "Goedemiddag! Klaar voor de lunch?"
     ];
     return afternoonMessages[Math.floor(Math.random() * afternoonMessages.length)];
   }
@@ -217,62 +217,62 @@ export function getWelcomeMessage(weather = null, season = 'herfst', timeOfDay =
   // Weather and season-based messages for evening/night
   if (weatherCategory === 'sunny_warm') {
     const sunnyMessages = [
-      "Wat een heerlijk zonnig weer! Fijn dat je er bent! ☀️",
-      "Perfect zonnig weer! Welkom bij 't Tolhuis! 🌞",
-      "Prachtig weer! Fijn dat je er bent! ☀️",
-      "Zonnetje schijnt! Fijn dat je er bent! ☀️",
-      "Heerlijk zonnig! Welkom! 🌅"
+      "Wat een heerlijk zonnig weer! Fijn dat je er bent!",
+      "Perfect zonnig weer! Welkom bij 't Tolhuis!",
+      "Prachtig weer! Fijn dat je er bent!",
+      "Zonnetje schijnt! Fijn dat je er bent!",
+      "Heerlijk zonnig! Welkom!"
     ];
     return sunnyMessages[Math.floor(Math.random() * sunnyMessages.length)];
   }
   
   if (weatherCategory === 'rain_cool' || weatherCategory === 'rain_warm') {
     const rainyMessages = [
-      "Perfect weer voor binnen zitten! Fijn dat je er bent! 🌧️",
-      "Gezellige regendag! Welkom bij 't Tolhuis! ☔",
-      "Regenweer vraagt om lekker eten! Fijn dat je er bent! 🌧️",
-      "Regenachtig weer! Fijn dat je er bent! ☔",
-      "Gezellig binnen! Welkom! 🌧️"
+      "Perfect weer voor binnen zitten! Fijn dat je er bent!",
+      "Gezellige regendag! Welkom bij 't Tolhuis!",
+      "Regenweer vraagt om lekker eten! Fijn dat je er bent!",
+      "Regenachtig weer! Fijn dat je er bent!",
+      "Gezellig binnen! Welkom!"
     ];
     return rainyMessages[Math.floor(Math.random() * rainyMessages.length)];
   }
   
   if (season === 'herfst' && weatherCategory === 'clouds_cool') {
     const autumnMessages = [
-      "Herfstachtige avond! Fijn dat je er bent! 🍂",
-      "Gezellige herfstsfeer! Welkom! 🍁",
-      "Perfect herfstweer! Fijn dat je er bent! 🍂",
-      "Herfstgevoel! Fijn dat je er bent! 🍃",
-      "Gezellige herfstavond! Welkom! 🍂"
+      "Herfstachtige avond! Fijn dat je er bent!",
+      "Gezellige herfstsfeer! Welkom!",
+      "Perfect herfstweer! Fijn dat je er bent!",
+      "Herfstgevoel! Fijn dat je er bent!",
+      "Gezellige herfstavond! Welkom!"
     ];
     return autumnMessages[Math.floor(Math.random() * autumnMessages.length)];
   }
   
   if (season === 'winter') {
     const winterMessages = [
-      "Gezellige winteravond! Fijn dat je er bent! ❄️",
-      "Perfect winterweer! Welkom! 🧊",
-      "Wintergevoel! Fijn dat je er bent! ❄️"
+      "Gezellige winteravond! Fijn dat je er bent!",
+      "Perfect winterweer! Welkom!",
+      "Wintergevoel! Fijn dat je er bent!"
     ];
     return winterMessages[Math.floor(Math.random() * winterMessages.length)];
   }
   
   if (season === 'zomer') {
     const summerMessages = [
-      "Heerlijke zomeravond! Fijn dat je er bent! 🌻",
-      "Perfect zomerweer! Welkom! ☀️",
-      "Zomervibes! Fijn dat je er bent! 🌞"
+      "Heerlijke zomeravond! Fijn dat je er bent!",
+      "Perfect zomerweer! Welkom!",
+      "Zomervibes! Fijn dat je er bent!"
     ];
     return summerMessages[Math.floor(Math.random() * summerMessages.length)];
   }
   
   // Default Dutch
   const defaultMessages = [
-    "Fijn dat je er bent! ✨",
-    "Welkom bij 't Tolhuis! 🌟",
-    "Goed dat je er bent! ✨",
-    "Fijn dat je er bent! 🌟",
-    "Welkom! Fijn dat je er bent! ✨"
+    "Fijn dat je er bent!",
+    "Welkom bij 't Tolhuis!",
+    "Goed dat je er bent!",
+    "Fijn dat je er bent!",
+    "Welkom! Fijn dat je er bent!"
   ];
   return defaultMessages[Math.floor(Math.random() * defaultMessages.length)];
 }
@@ -283,5 +283,5 @@ export function getWelcomeMessage(weather = null, season = 'herfst', timeOfDay =
 export function clearWeatherCache() {
   weatherCache = null;
   weatherCacheTime = null;
-  console.log('🔄 Weather cache cleared');
+  console.log('Weather cache cleared');
 }
