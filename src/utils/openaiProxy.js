@@ -194,7 +194,8 @@ async function generateAIDescriptionClientSide(prompt, lang = 'nl') {
     console.log('Calling OpenAI API...');
     console.log(' Prompt:', prompt.substring(0, 100) + '...');
     
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch("/api/chat", {
+
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
