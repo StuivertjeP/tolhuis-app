@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { translateDish as translateDishService, translateCategory as translateCategoryService } from './utils/translationService.js';
 
 /**
- * QR → AI-Guided Menu (single-file demo)
- * Flow: Intro (belevingstekst) → Mini-quiz (diet → taste → name) → WhatsApp opt-in → Menu
+ * QR � AI-Guided Menu (single-file demo)
+ * Flow: Intro (belevingstekst) � Mini-quiz (diet � taste � name) � WhatsApp opt-in � Menu
  * Notes:
  * - Pairings are suggest-only (toast), no ordering in-app
  * - NL/EN switch in Hero on menu page
@@ -32,33 +32,33 @@ const i18n = {
     typeLabel: (t) => ({ main: "Hoofdgerecht", starter: "Voorgerecht", dessert: "Dessert", side: "Bijgerecht", ontbijt: "Ontbijt", lunch: "Lunch", voorgerecht: "Voorgerecht", diner: "Hoofdgerecht", borrel: "Borrel", drank: "Drank", vlees: "Hoofdgerecht", vis: "Hoofdgerecht", vega: "Hoofdgerecht", salade: "Hoofdgerecht", soep: "Voorgerecht" })[t] || "Gerecht",
     simpleCategoryLabel: (category, section, type, isWeek) => {
       // Debug: log alle waarden
-      console.log('🏷️ Category Label Debug:', { category, section, type, isWeek });
+      console.log('� Category Label Debug:', { category, section, type, isWeek });
       
       // Weekmenu items zijn altijd Hoofdgerecht!
       if (isWeek) {
-        console.log('✅ Weekmenu item detected, using: Hoofdgerecht');
+        console.log(' Weekmenu item detected, using: Hoofdgerecht');
         return "Hoofdgerecht";
       }
       
       // Eerste prioriteit: gebruik category kolom uit Google Sheets (kolom H) DIRECT
       if (category) {
-        console.log('✅ Using category directly:', category);
+        console.log(' Using category directly:', category);
         return category;
       }
       
       // Tweede prioriteit: section kolom uit Google Sheets (kolom C) DIRECT
       if (section) {
-        console.log('✅ Using section directly:', section);
+        console.log(' Using section directly:', section);
         return section;
       }
       
       // Derde prioriteit: type kolom DIRECT
       if (type) {
-        console.log('✅ Using type directly:', type);
+        console.log(' Using type directly:', type);
         return type;
       }
       
-      console.log('⚠️ No value found, using fallback: Gerecht');
+      console.log(' No value found, using fallback: Gerecht');
       return "Gerecht";
     },
     translateCategory: (category) => {
@@ -84,12 +84,12 @@ const i18n = {
     diets: [
       { key: "meat", label: "🥩 Vlees" },
       { key: "fish", label: "🐟 Vis" },
-      { key: "veg", label: "🥦 Vegetarisch" },
+      { key: "veg", label: "🥬 Vegetarisch" },
     ],
     // Menu filters
     menuFilters: {
-      vegetarian: "✅ Vegetarisch",
-      glutenFree: "✅ Glutenvrij"
+      vegetarian: "🥬 Vegetarisch",
+      glutenFree: "🌾 Glutenvrij"
     }
   },
   en: {
@@ -108,33 +108,33 @@ const i18n = {
     typeLabel: (t) => ({ main: "Main course", starter: "Starter", dessert: "Dessert", side: "Side dish", ontbijt: "Breakfast", lunch: "Lunch", voorgerecht: "Starter", diner: "Main course", borrel: "Snacks", drank: "Drink", vlees: "Main course", vis: "Main course", vega: "Main course", salade: "Main course", soep: "Starter" })[t] || "Dish",
     simpleCategoryLabel: (category, section, type, isWeek) => {
       // Debug: log alle waarden
-      console.log('🏷️ Category Label Debug (EN):', { category, section, type, isWeek });
+      console.log('� Category Label Debug (EN):', { category, section, type, isWeek });
       
       // Weekmenu items zijn altijd Main course!
       if (isWeek) {
-        console.log('✅ Weekmenu item detected (EN), using: Main course');
+        console.log(' Weekmenu item detected (EN), using: Main course');
         return "Main course";
       }
       
       // Eerste prioriteit: gebruik category kolom uit Google Sheets (kolom H) DIRECT
       if (category) {
-        console.log('✅ Using category directly (EN):', category);
+        console.log(' Using category directly (EN):', category);
         return category;
       }
       
       // Tweede prioriteit: section kolom uit Google Sheets (kolom C) DIRECT
       if (section) {
-        console.log('✅ Using section directly (EN):', section);
+        console.log(' Using section directly (EN):', section);
         return section;
       }
       
       // Derde prioriteit: type kolom DIRECT
       if (type) {
-        console.log('✅ Using type directly (EN):', type);
+        console.log(' Using type directly (EN):', type);
         return type;
       }
       
-      console.log('⚠️ No value found (EN), using fallback: Dish');
+      console.log(' No value found (EN), using fallback: Dish');
       return "Dish";
     },
     translateCategory: (category) => {
@@ -160,12 +160,12 @@ const i18n = {
     diets: [
       { key: "meat", label: "🥩 Meat" },
       { key: "fish", label: "🐟 Fish" },
-      { key: "veg", label: "🥦 Vegetarian" },
+      { key: "veg", label: "🥬 Vegetarian" },
     ],
     // Menu filters
     menuFilters: {
-      vegetarian: "✅ Vegetarian",
-      glutenFree: "✅ Gluten-free"
+      vegetarian: "🥬 Vegetarian",
+      glutenFree: "🌾 Gluten-free"
     }
   },
 };
@@ -197,7 +197,7 @@ const demo = {
   venue: { slug: "tolhuis", name: "'t Tolhuis", currency: "€" },
   weekmenu: [{ venue: "tolhuis", week: "2025-W36", dish_id: "spc_1", label: "HAP VAN DE WEEK" }],
   specials: {
-    metaTitle: "No: 40 • Jaar: 2025 • 30 sept t/m 6 okt",
+    metaTitle: "No: 40  Jaar: 2025  30 sept t/m 6 okt",
     groups: [
       { title: "HAP VAN DE WEEK", items: [ { id: "spc_1", name: "Op de huid gebakken zeebaarsfilet", desc: "op groene curry, boontjes, inktvis met een limoen botersaus", price: 19.95 } ]},
       { title: "VIS VAN DE DAG", items: [ { id: "spc_2", name: "Gebakken zalm", desc: "met kruiden, citroen en geroosterde aardappelen", price: 18.95 } ]},
@@ -234,7 +234,7 @@ function toArr(v){ if (Array.isArray(v)) return v; if (v==null) return []; retur
 function recordEvent(event){ try{ const k='analytics'; const arr=JSON.parse(localStorage.getItem(k)||'[]'); arr.push({t:Date.now(),...event}); localStorage.setItem(k, JSON.stringify(arr)); }catch{} }
 function sentenceCase(s){ if (!s) return ''; const t = String(s).trim(); return t ? t.charAt(0).toUpperCase() + t.slice(1) : ''; }
 function tasteToCode(s=''){
-  const x = s.toLowerCase().replace(/[✨🍲🌟]/g, '').trim(); // Remove emojis
+  const x = s.toLowerCase().replace(/[�]/g, '').trim(); // Remove emojis
   if (/(licht|light)/.test(x) && /(fris|fresh)/.test(x)) return 'light_fresh';
   if (/(rijk|rich)/.test(x) && /(hartig|hearty)/.test(x)) return 'rich_hearty';
   if (/(verrassend|surprising)/.test(x) && /(vol|full)/.test(x)) return 'surprising_full';
@@ -256,7 +256,7 @@ function getContextSignals(){
   // Speciale vrijdag borrel logica - nog eerder beginnen
   if (dayOfWeek === 5) { // Vrijdag
     daypartContext.borrel.start = 15; // Vrijdag borrel vanaf 15:00
-    console.log('🍻 Vrijdag borrel mode - vanaf 15:00!');
+    console.log('� Vrijdag borrel mode - vanaf 15:00!');
   }
   
   // Bepaal de juiste daypart met meer precisie
@@ -271,7 +271,7 @@ function getContextSignals(){
   // Speciale vrijdag middag borrel check
   if (dayOfWeek === 5 && hour >= 15 && hour < 17) {
     currentDaypart = 'borrel';
-    console.log('🍻 Vrijdag middag borrel actief!');
+    console.log('� Vrijdag middag borrel actief!');
   }
   
   return { 
@@ -315,7 +315,7 @@ function preferDiet(d, dietKey){
     
     // EXCLUDE LUNCH CATEGORY (tijdelijke items)
     if (category === 'lunch') {
-      console.log('🥬❌ LUNCH excluded:', d.name);
+      console.log('� LUNCH excluded:', d.name);
       return false;
     }
     
@@ -323,12 +323,12 @@ function preferDiet(d, dietKey){
     const isVega = type === 'vega' || type === 'vegetarisch' || 
                    ds.includes('veg') || ds.includes('v') || ds.includes('vega') || ds.includes('vegetarisch');
     
-    console.log('🥬 Veg check:', d.name, {
+    console.log('� Veg check:', d.name, {
       type: type,
       diet: ds,
       category: category,
       isVega: isVega,
-      result: isVega ? '✅ ACCEPTED' : '❌ REJECTED'
+      result: isVega ? ' ACCEPTED' : ' REJECTED'
     });
     
     return isVega;
@@ -368,15 +368,15 @@ function preferDiet(d, dietKey){
 
 // Helper function to remove emojis from taste labels for menu display
 function removeEmojisFromTaste(tasteLabel) {
-  return tasteLabel.replace(/[✨🍲🌟]/g, '').trim();
+  return tasteLabel.replace(/[�]/g, '').trim();
 }
 
 function gpt5RankDishes({ user, context, dishes }){
   const tastePrefCode = tasteToCode(user.taste || '');
-  console.log('🎯 Ranking debug:', { tastePrefCode, userTaste: user.taste, userDiet: user.diet });
+  console.log(' Ranking debug:', { tastePrefCode, userTaste: user.taste, userDiet: user.diet });
   
   // Debug: log all dishes being ranked
-  console.log('📋 All dishes for ranking:', dishes.map(d => ({
+  console.log('� All dishes for ranking:', dishes.map(d => ({
     name: d.name,
     type: d.type,
     diet: d.diet,
@@ -388,7 +388,7 @@ function gpt5RankDishes({ user, context, dishes }){
     // Don't filter out items completely - just score them lower
     const dietMatch = preferDiet(d, user.diet);
     if (!dietMatch) {
-      console.log('⚠️ Diet preference not matched for:', d.name, { userDiet: user.diet, dishType: d.type, dishDiet: d.diet });
+      console.log(' Diet preference not matched for:', d.name, { userDiet: user.diet, dishType: d.type, dishDiet: d.diet });
     }
     
     let s = 0;
@@ -401,14 +401,14 @@ function gpt5RankDishes({ user, context, dishes }){
       const name = (d.name || '').toLowerCase();
       if (name.includes('vegetarische hap') || name.includes('vegetarian dish')) {
         s += 100; // Very high score to ensure it's always first
-        console.log('🥬 VEGETARISCHE HAP BOOST for:', d.name);
+        console.log('� VEGETARISCHE HAP BOOST for:', d.name);
       }
     }
     
     // Diet preference scoring
     if (dietMatch) {
       s += 3;
-      console.log('✅ Diet match for:', d.name);
+      console.log(' Diet match for:', d.name);
     } else {
       s -= 1; // Penalty for diet mismatch, but don't exclude completely
     }
@@ -425,12 +425,12 @@ function gpt5RankDishes({ user, context, dishes }){
       if (d.tags?.includes('rijk') || d.tags?.includes('hartig')) s += 2;
     }
     
-    console.log('📊 Score for', d.name, ':', s, 'final:', s);
+    console.log('� Score for', d.name, ':', s, 'final:', s);
     return s; // Geen random factor meer - consistente ranking
   };
   const ranked = dishes.map((d)=>({...d,_score:score(d)})).filter((d)=>d._score>=0).sort((a,b)=>b._score-a._score);
   
-  console.log('🏆 Final ranked dishes:', ranked.map(d => ({ name: d.name, score: d._score })));
+  console.log('� Final ranked dishes:', ranked.map(d => ({ name: d.name, score: d._score })));
   
   return ranked;
 }
@@ -445,7 +445,7 @@ async function gpt5PairingCopy({ pairing, lang='nl' }){
   const base = lang==='nl' ? 
     `Perfecte combinatie met ${pairing.name}` : 
     `Perfect combination with ${pairing.name}`;
-  const nuance = lang==='nl' ? '— versterkt de smaken zonder te overheersen.' : '— lifts the flavours without overpowering.';
+  const nuance = lang==='nl' ? ' versterkt de smaken zonder te overheersen.' : ' lifts the flavours without overpowering.';
   return `${base} ${nuance}`;
 }
 

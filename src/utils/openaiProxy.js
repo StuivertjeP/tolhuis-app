@@ -22,46 +22,43 @@ const PROXY_URL = process.env.REACT_APP_OPENAI_PROXY_URL || '/api/openai';
  */
 export async function generatePairingDescription({ dishId, dishName, pairingSuggestion, dishDescription = '', userTaste = '', lang = 'nl' }) {
   const prompt = lang === 'en'
-    ? `Write a simple, local restaurant-style pairing hint (1 sentence, max 12 words) for:
+    ? `Write a natural, brief pairing description (1 sentence, max 15 words) for:
        
        Dish: ${dishName}
        Pairing: ${pairingSuggestion}
        
        Examples of GOOD descriptions:
-       - "Perfect match! This wine goes great with this dish."
-       - "Excellent choice! This really brings out the flavors."
-       - "Great combination! This pairs beautifully together."
+       - "Perfect combination! This wine complements the dish beautifully!"
+       - "Excellent choice! This pairing enhances the flavors perfectly!"
        
-       Examples of BAD descriptions (too fancy/sommelier):
-       - "This exquisite vintage perfectly complements the delicate nuances"
-       - "An exceptional pairing that elevates the gastronomic experience"
+       Examples of BAD descriptions (too much weather/time):
+       - "Perfect for a rainy autumn evening with neutral weather!"
        
-       Be enthusiastic but simple. Like a friendly local restaurant owner. NO emojis.`
-    : `Schrijf een simpele, lokale restaurant-stijl pairing hint (1 zin, max 12 woorden) voor:
+       Be enthusiastic but natural. Focus on taste and pairing quality. NO EMOJIS - keep it clean and professional.`
+    : `Schrijf een natuurlijke, korte pairing beschrijving (1 zin, max 15 woorden) voor:
        
        Gerecht: ${dishName}
        Pairing: ${pairingSuggestion}
        
        Voorbeelden van GOEDE beschrijvingen:
-       - "Perfecte match! Deze wijn smaakt heerlijk bij dit gerecht."
-       - "Uitstekende keuze! Dit brengt de smaken echt naar voren."
-       - "Geweldige combinatie! Dit past perfect bij elkaar."
+       - "Perfecte combinatie! Deze wijn smaakt heerlijk bij dit gerecht!"
+       - "Uitstekende keuze! Deze pairing versterkt de smaken perfect!"
        
-       Voorbeelden van SLECHTE beschrijvingen (te fancy/sommelier):
-       - "Deze verfijnde vintage complementeert perfect de delicate nuances"
-       - "Een uitzonderlijke pairing die de gastronomische ervaring verheft"
+       Voorbeelden van SLECHTE beschrijvingen (teveel weer/tijd):
+       - "Perfect voor een regenachtige herfstavond bij neutraal weer!"
        
        BELANGRIJK: Gebruik GEEN verkleinwoorden (hapje, drankje, etc.) - dit is een professioneel restaurant.
        
-       Wees enthousiast maar simpel. Zoals een vriendelijke lokale restauranthouder. GEEN emoji's.`;
+       Wees enthousiast maar natuurlijk. Focus op smaak en combinatie. GEEN EMOJIS - houd het schoon en professioneel.`;
 
-  const aiDescription = await generateAIDescriptionClientSide(prompt, lang);
+  // Prefer secure server-side proxy in production
+  const aiDescription = await generateAIDescriptionViaProxy(prompt, lang);
   
   // Save to cache (Sheets) for future use
   if (aiDescription && dishId) {
     try {
       await saveAIDescriptionToSheet(dishId, pairingSuggestion, aiDescription, lang);
-      console.log(`💾 AI description saved to cache for ${dishId}`);
+      console.log(`� AI description saved to cache for ${dishId}`);
     } catch (error) {
       console.warn('Failed to save AI description to cache:', error);
     }
@@ -85,24 +82,24 @@ export async function generateContextHint({ pairingSuggestion, weatherCategory, 
   // Fallback templates if AI fails
   const fallbacks = {
     nl: {
-      hot_sunny: "Heerlijk verfrissend! ☀️",
-      hot: "Perfect bij dit weer! 🌤️",
-      cold: "Lekker verwarmend! 🔥",
-      rain: "Ideaal bij regen! 🌧️",
-      snow: "Winterse verwennerij! ❄️",
-      clouds_warm: "Aangenaam bij bewolkt weer! ☁️",
-      clouds_cool: "Verfrissend bij fris weer! 🌥️",
-      neutral: "Uitstekende keuze! ✨"
+      hot_sunny: "Heerlijk verfrissend!",
+      hot: "Perfect bij dit weer!",
+      cold: "Lekker verwarmend!",
+      rain: "Ideaal bij regen!",
+      snow: "Winterse verwennerij!",
+      clouds_warm: "Aangenaam bij bewolkt weer!",
+      clouds_cool: "Verfrissend bij fris weer!",
+      neutral: "Uitstekende keuze!"
     },
     en: {
-      hot_sunny: "Wonderfully refreshing! ☀️",
-      hot: "Perfect for this weather! 🌤️",
-      cold: "Nicely warming! 🔥",
-      rain: "Ideal in the rain! 🌧️",
-      snow: "Winter treat! ❄️",
-      clouds_warm: "Pleasant on cloudy weather! ☁️",
-      clouds_cool: "Refreshing on cool weather! 🌥️",
-      neutral: "Excellent choice! ✨"
+      hot_sunny: "Wonderfully refreshing!",
+      hot: "Perfect for this weather!",
+      cold: "Nicely warming!",
+      rain: "Ideal in the rain!",
+      snow: "Winter treat!",
+      clouds_warm: "Pleasant on cloudy weather!",
+      clouds_cool: "Refreshing on cool weather!",
+      neutral: "Excellent choice!"
     }
   };
 
@@ -116,13 +113,13 @@ export async function generateContextHint({ pairingSuggestion, weatherCategory, 
        Generate a SHORT commercial hint (max 8 words) that:
        1. Matches the context naturally
        2. Creates desire/urgency
-       3. Includes relevant emoji
-       4. Sounds enthusiastic but not pushy
+       3. Sounds enthusiastic but not pushy
+       4. NO EMOJIS - keep it clean and professional
        
        Examples:
-       - "Perfectly refreshing for this weather! 🌤️"
-       - "Ideal for a cold evening! 🔥"
-       - "Great choice for tonight! 🌙"`
+       - "Perfectly refreshing for this weather!"
+       - "Ideal for a cold evening!"
+       - "Great choice for tonight!"`
     : `Gegeven deze context:
        - Pairing: ${pairingSuggestion}
        - Weer: ${weatherCategory} (${temp}°C)
@@ -132,19 +129,19 @@ export async function generateContextHint({ pairingSuggestion, weatherCategory, 
        Genereer een KORTE commerciële hint (max 8 woorden) die:
        1. Natuurlijk aansluit bij de context
        2. Verlangen/urgentie creëert
-       3. Een relevante emoji bevat
-       4. Enthousiast klinkt maar niet opdringerig
-       5. GEEN verkleinwoorden gebruikt (dit is een professioneel restaurant)
+       3. Enthousiast klinkt maar niet opdringerig
+       4. GEEN verkleinwoorden gebruikt (dit is een professioneel restaurant)
+       5. GEEN EMOJIS - houd het schoon en professioneel
        
        Voorbeelden:
-       - "Heerlijk verfrissend bij dit weer! 🌤️"
-       - "Perfect voor een koude avond! 🔥"
-       - "Ideale keuze voor vanavond! 🌙"`;
+       - "Heerlijk verfrissend bij dit weer!"
+       - "Perfect voor een koude avond!"
+       - "Ideale keuze voor vanavond!"`;
 
   try {
-    const hint = await generateAIDescriptionClientSide(prompt, lang);
+    const hint = await generateAIDescriptionViaProxy(prompt, lang);
     if (hint && hint.length > 0) {
-      console.log(`🌤️ AI context hint generated: ${hint}`);
+      console.log(` AI context hint generated: ${hint}`);
       return hint;
     }
   } catch (error) {
@@ -153,7 +150,7 @@ export async function generateContextHint({ pairingSuggestion, weatherCategory, 
 
   // Fallback
   const fallback = fallbacks[lang][weatherCategory] || fallbacks[lang].neutral;
-  console.log(`🌤️ Using fallback hint: ${fallback}`);
+  console.log(` Using fallback hint: ${fallback}`);
   return fallback;
 }
 
@@ -181,21 +178,21 @@ export async function generateAIDescriptionViaProxy(prompt, lang = 'nl') {
 }
 
 async function generateAIDescriptionClientSide(prompt, lang = 'nl') {
-  console.log('🤖 generateAIDescriptionClientSide called with lang:', lang);
+  console.log(' generateAIDescriptionClientSide called with lang:', lang);
   
-  // Get API key from environment variable or use fallback
-  const apiKey = process.env.REACT_APP_OPENAI_API_KEY || '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';
+  // Get API key from environment variable (development only). No fallback key.
+  const apiKey = process.env.REACT_APP_OPENAI_API_KEY;
   
-  console.log('🔑 API Key check:', apiKey ? `Found (${apiKey.substring(0, 10)}...)` : 'NOT FOUND');
+  console.log('API Key check:', apiKey ? `Found (${apiKey.substring(0, 10)}...)` : 'NOT FOUND');
   
   if (!apiKey) {
-    console.warn('⚠️ No OpenAI API key found');
+    console.warn(' No OpenAI API key found');
     return null;
   }
 
   try {
-    console.log('📞 Calling OpenAI API...');
-    console.log('📝 Prompt:', prompt.substring(0, 100) + '...');
+    console.log('Calling OpenAI API...');
+    console.log(' Prompt:', prompt.substring(0, 100) + '...');
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -220,25 +217,25 @@ async function generateAIDescriptionClientSide(prompt, lang = 'nl') {
       }),
     });
 
-    console.log('📡 OpenAI response status:', response.status);
+    console.log(' OpenAI response status:', response.status);
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('❌ OpenAI API error response:', errorData);
+      console.error(' OpenAI API error response:', errorData);
       throw new Error(`OpenAI API error: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log('📦 OpenAI response data:', data);
+    console.log('OpenAI response data:', data);
     
     const result = data.choices[0]?.message?.content?.trim();
-    console.log('✅ Generated text:', result);
+    console.log(' Generated text:', result);
     
     return result;
     
   } catch (error) {
-    console.error('❌ Error calling OpenAI API:', error);
-    console.error('❌ Error details:', error.message);
+    console.error(' Error calling OpenAI API:', error);
+    console.error(' Error details:', error.message);
     return null;
   }
 }
@@ -255,7 +252,7 @@ async function generateAIDescriptionClientSide(prompt, lang = 'nl') {
  * @returns {Promise<string>} Generated upsell message
  */
 export async function generateSmartUpsell({ userTaste = '', weatherCategory = 'neutral', temp = 15, timeOfDay = 'avond', season = 'herfst', lang = 'nl', smartBubblesData = [] }) {
-  console.log('🎯 generateSmartUpsell called with:', {
+  console.log(' generateSmartUpsell called with:', {
     userTaste,
     weatherCategory,
     timeOfDay,
@@ -265,84 +262,26 @@ export async function generateSmartUpsell({ userTaste = '', weatherCategory = 'n
     smartBubblesData: smartBubblesData
   });
   
-  // If no SmartBubbles data, return empty (no fallback)
+  // If no SmartBubbles data, use hardcoded menu items as fallback
   if (smartBubblesData.length === 0) {
-    console.log('⚠️ No SmartBubbles data available - not showing any bubbles');
-    return '';
+    console.log(' No SmartBubbles data available, using hardcoded fallback menu items');
+    
+    // Hardcoded menu items (temporary until SmartBubbles sheet is ready)
+    const hardcodedItems = lang === 'en' ? [
+      { dish_name: "Carpaccio tenderloin", category: "food", price: "�� 7,50" },
+      { dish_name: "Special beer", category: "drink", price: "�� 4,95" },
+      { dish_name: "Cr�me brûlée", category: "dessert", price: "�� 6,50" },
+      { dish_name: "French onion soup", category: "food", price: "�� 6,95" }
+    ] : [
+      { dish_name: "Carpaccio ossenhaas", category: "food", price: "�� 7,50" },
+      { dish_name: "Speciaal biertje", category: "drink", price: "�� 4,95" },
+      { dish_name: "Cr�me brûlée", category: "dessert", price: "�� 6,50" },
+      { dish_name: "Franse uiensoep", category: "food", price: "�� 6,95" }
+    ];
+    
+    smartBubblesData = hardcodedItems;
+    console.log(' Using hardcoded items:', smartBubblesData.length, 'items');
   }
-  
-  // Filter SmartBubbles based on context
-  console.log(`🔍 Filtering ${smartBubblesData.length} SmartBubbles with context:`, {
-    weatherCategory,
-    timeOfDay,
-    season,
-    userTaste
-  });
-  
-  const filteredBubbles = smartBubblesData.filter(bubble => {
-    console.log(`🔍 Checking bubble: ${bubble.dish_name}`, {
-      active: bubble.active,
-      weather_match: bubble.weather_match,
-      time_match: bubble.time_match,
-      season_match: bubble.season_match,
-      taste_match: bubble.taste_match
-    });
-    
-    // Check if bubble is active
-    if (!bubble.active) {
-      console.log(`⏭️ Skipping ${bubble.dish_name} - not active`);
-      return false;
-    }
-    
-    // Check weather match (only if explicitly set and not 'alle')
-    if (bubble.weather_match && bubble.weather_match.length > 0 && !bubble.weather_match.includes('alle')) {
-      if (!bubble.weather_match.includes(weatherCategory)) {
-        console.log(`⏭️ Skipping ${bubble.dish_name} - weather mismatch (${weatherCategory} not in ${bubble.weather_match})`);
-        return false;
-      }
-    }
-    
-    // Check time match (only if explicitly set and not 'alle')
-    if (bubble.time_match && bubble.time_match.length > 0 && !bubble.time_match.includes('alle')) {
-      if (!bubble.time_match.includes(timeOfDay)) {
-        console.log(`⏭️ Skipping ${bubble.dish_name} - time mismatch (${timeOfDay} not in ${bubble.time_match})`);
-        return false;
-      }
-    }
-    
-    // Check season match (only if explicitly set and not 'alle')
-    if (bubble.season_match && bubble.season_match.length > 0 && !bubble.season_match.includes('alle')) {
-      if (!bubble.season_match.includes(season)) {
-        console.log(`⏭️ Skipping ${bubble.dish_name} - season mismatch (${season} not in ${bubble.season_match})`);
-        return false;
-      }
-    }
-    
-    // Check taste match (only if explicitly set and not 'alle')
-    if (bubble.taste_match && bubble.taste_match.length > 0 && !bubble.taste_match.includes('alle')) {
-      if (!bubble.taste_match.some(taste => userTaste.includes(taste))) {
-        console.log(`⏭️ Skipping ${bubble.dish_name} - taste mismatch (${userTaste} not matching ${bubble.taste_match})`);
-        return false;
-      }
-    }
-    
-    console.log(`✅ ${bubble.dish_name} passed all filters`);
-    return true;
-  });
-  
-  console.log(`🎯 Filtered ${filteredBubbles.length} bubbles from ${smartBubblesData.length} total`);
-  console.log(`🎯 Current context: weather=${weatherCategory}, time=${timeOfDay}, season=${season}, taste=${userTaste}`);
-  
-  // If no bubbles pass the filters, don't show anything
-  if (filteredBubbles.length === 0) {
-    console.log('⚠️ No SmartBubbles passed the filters - not showing any bubbles');
-    console.log('🔍 Available bubbles:', smartBubblesData.map(b => `${b.dish_name} (active:${b.active}, weather:${b.weather_match}, time:${b.time_match}, season:${b.season_match}, taste:${b.taste_match})`));
-    return '';
-  }
-  
-  // Use filtered bubbles
-  const selectedBubble = filteredBubbles[Math.floor(Math.random() * filteredBubbles.length)];
-  console.log(`🎯 Selected bubble: ${selectedBubble.dish_name}`);
   
   const prompt = lang === 'en'
     ? `Generate a SHORT, friendly upsell suggestion (max 10 words) for Restaurant 't Tolhuis based on:
@@ -351,83 +290,74 @@ export async function generateSmartUpsell({ userTaste = '', weatherCategory = 'n
        User preference: ${userTaste}
        
        REAL MENU ITEMS FROM 'T TOLHUIS (use these keywords/dishes):
-       ${filteredBubbles.map(item => `- ${item.dish_name} - ${item.price} (${item.category})`).join('\n')}
+       ${smartBubblesData.length > 0 ? smartBubblesData.map(item => `- ${item.dish_name} - ${item.price} (${item.category})`).join('\n') : 'No specific items available'}
        
        Make it:
        - Subtle and non-pushy
-       - Use EXACT dish names from menu items above - NO modifications!
+       - Use KEYWORDS from menu items (e.g. "carpaccio", "cr�me brûlée", etc.)
        - ALWAYS MENTION THE PRICE - this is an offer!
        - Make it attractive but stay with real dishes
-       - Add relevant emoji
-       - NO diminutives (no "hapje", "biertje", etc.)
-       - NO weird combinations (no "warm carpaccio", "cold soup", "fresh carpaccio", etc.)
-       - NO adjectives that don't make sense (no "frisse carpaccio", "warme carpaccio")
-       - Keep it natural and appetizing
-       - Match the context (${weatherCategory} weather, ${timeOfDay}, ${season})
        - IMPORTANT: Consider time - no alcohol in morning/afternoon!
-       - CRITICAL: Use ONLY the exact dish name + price + emoji
+       - NO EMOJIS - keep it clean and professional
        
        Examples (creative with keywords + PRICE):
-       If menu has "Carpaccio tenderloin - € 7,50":
-       ✅ "Try our carpaccio for only € 7,50! 🥩"
-       ✅ "Carpaccio tenderloin for € 7,50! 🍽️"
+       If menu has "Carpaccio tenderloin - �� 7,50":
+        "Try our carpaccio for only �� 7,50!"
+        "Carpaccio tenderloin for �� 7,50!"
        
-       If menu has "Special beer - € 4,95":
-       ✅ "Special beer for € 4,95! 🍺"
-       ✅ "Beer for € 4,95? 🍻"
+       If menu has "Special beer - �� 4,95":
+        "Special beer for �� 4,95!"
+        "Beer for �� 4,95?"
        
        IMPORTANT: Use the EXACT dish names from the menu items above!
        
        CRITICAL: Translate Dutch dish names to English:
-       - "Carpaccio ossenhaas" → "Carpaccio tenderloin"
-       - "Speciaal biertje" → "Special beer"
-       - "Glas wijn" → "Glass of wine"
+       - "Carpaccio ossenhaas" � "Carpaccio tenderloin"
+       - "Speciaal biertje" � "Special beer"
+       - "Glas wijn" � "Glass of wine"
        
        GENERAL (if no match):
-       "Our chef has something special today! 👨‍🍳"
-       "Ask for our offers! ✨"`
+       "Our chef has something special today!"
+       "Ask for our offers!"`
     : `Genereer een KORTE, vriendelijke upsell suggestie (max 10 woorden) voor Restaurant 't Tolhuis gebaseerd op:
        
        Context: ${weatherCategory} weer (${temp}°C), ${timeOfDay}, ${season}
        Gebruiker voorkeur: ${userTaste}
        
        ECHTE MENU ITEMS UIT 'T TOLHUIS (gebruik deze keywords/gerechten):
-       ${filteredBubbles.map(item => `- ${item.dish_name} - ${item.price} (${item.category})`).join('\n')}
+       ${smartBubblesData.length > 0 ? smartBubblesData.map(item => `- ${item.dish_name} - ${item.price} (${item.category})`).join('\n') : 'Geen specifieke items beschikbaar'}
        
        Maak het:
        - Subtiel en niet opdringerig
-       - Gebruik EXACTE gerechtnamen uit menu items hierboven
+       - Gebruik de KEYWORDS uit de menu items (bijv. "carpaccio", "cr�me brûlée", etc.)
        - NOEM ALTIJD DE PRIJS - dit is een aanbieding!
        - Maak het aantrekkelijk en verleidelijk, maar blijf bij echte gerechten
-       - Voeg relevante emoji toe
-       - GEEN verkleinwoorden (geen "hapje", "biertje", etc.)
-       - GEEN rare combinaties (geen "warme carpaccio", "koude soep", etc.)
-       - Houd het natuurlijk en appetijtelijk
-       - Match de context (${weatherCategory} weer, ${timeOfDay}, ${season})
        - BELANGRIJK: Houd rekening met tijd - geen alcohol in ochtend/middag!
+       - Je MAG creatief zijn met de woorden, maar NIET nieuwe gerechten bedenken
+       - GEEN EMOJIS - houd het schoon en professioneel
        
        Voorbeelden (creatief met keywords + PRIJS):
-       Als menu heeft "Carpaccio ossenhaas - € 7,50":
-       ✅ "Carpaccio ossenhaas voor € 7,50! 🥩"
-       ✅ "Probeer onze carpaccio voor slechts € 7,50! 🍽️"
-       ❌ "Probeer onze fruitsalade!" (NIET - staat niet in menu)
+       Als menu heeft "Carpaccio ossenhaas - �� 7,50":
+        "Carpaccio ossenhaas voor �� 7,50!"
+        "Probeer onze carpaccio voor slechts �� 7,50!"
+        "Probeer onze fruitsalade!" (NIET - staat niet in menu)
        
-       Als menu heeft "Speciaal biertje - € 4,95":
-       ✅ "Speciaal biertje voor € 4,95! 🍺"
-       ✅ "Biertje erbij voor € 4,95? 🍻"
+       Als menu heeft "Speciaal biertje - �� 4,95":
+        "Speciaal biertje voor �� 4,95!"
+        "Biertje erbij voor �� 4,95?"
        
-       Als menu heeft "Crème brûlée - € 6,50":
-       ✅ "Crème brûlée voor € 6,50 als afsluiter? 🍮"
-       ✅ "Zoete afsluiter voor € 6,50! ✨"
+       Als menu heeft "Cr�me brûlée - �� 6,50":
+        "Cr�me brûlée voor �� 6,50 als afsluiter?"
+        "Zoete afsluiter voor �� 6,50!"
        
        ALGEMEEN (als geen match):
-       "Onze chef heeft vandaag iets speciaals! 👨‍🍳"
-       "Vraag naar onze aanbiedingen! ✨"`;
+       "Onze chef heeft vandaag iets speciaals!"
+       "Vraag naar onze aanbiedingen!"`;
 
   try {
-    const upsellMessage = await generateAIDescriptionClientSide(prompt, lang);
+    const upsellMessage = await generateAIDescriptionViaProxy(prompt, lang);
     if (upsellMessage && upsellMessage.length > 0) {
-      console.log(`🎯 Smart upsell generated: ${upsellMessage}`);
+      console.log(` Smart upsell generated: ${upsellMessage}`);
       return upsellMessage;
     }
   } catch (error) {
@@ -435,19 +365,19 @@ export async function generateSmartUpsell({ userTaste = '', weatherCategory = 'n
   }
 
   // If AI failed, return contextual fallback based on time and weather
-  console.log('⚠️ AI generation failed, using contextual fallback');
+  console.log(' AI generation failed, using contextual fallback');
   
   if (lang === 'en') {
     const englishFallbacks = {
-      morning: "Try our breakfast special! ☀️",
-      afternoon: "Perfect lunch option available! 🍽️", 
-      evening: "Evening specials await! 🌙",
-      rainy: "Cozy indoor dining! ☔",
-      sunny: "Perfect terrace weather! ☀️",
-      autumn: "Autumn flavors available! 🍂",
-      winter: "Warm winter dishes! ❄️",
-      spring: "Fresh spring menu! 🌸",
-      summer: "Refreshing summer options! 🌻"
+      morning: "Try our breakfast special!",
+      afternoon: "Perfect lunch option available!", 
+      evening: "Evening specials await!",
+      rainy: "Cozy indoor dining!",
+      sunny: "Perfect terrace weather!",
+      autumn: "Autumn flavors available!",
+      winter: "Warm winter dishes!",
+      spring: "Fresh spring menu!",
+      summer: "Refreshing summer options!"
     };
     
     // Try to match context
@@ -461,18 +391,18 @@ export async function generateSmartUpsell({ userTaste = '', weatherCategory = 'n
     if (season === 'lente') return englishFallbacks.spring;
     if (season === 'zomer') return englishFallbacks.summer;
     
-    return "Our chef has something special today! 👨‍🍳";
+    return "Our chef has something special today!";
   } else {
     const dutchFallbacks = {
-      morning: "Probeer ons ontbijt! ☀️",
-      afternoon: "Perfecte lunch optie beschikbaar! 🍽️",
-      evening: "Avond specials wachten! 🌙", 
-      rainy: "Gezellig binnen dineren! ☔",
-      sunny: "Perfect terras weer! ☀️",
-      autumn: "Herfst smaken beschikbaar! 🍂",
-      winter: "Warme winter gerechten! ❄️",
-      spring: "Verse lente menu! 🌸",
-      summer: "Verfrissende zomer opties! 🌻"
+      morning: "Probeer ons ontbijt!",
+      afternoon: "Perfecte lunch optie beschikbaar!",
+      evening: "Avond specials wachten!", 
+      rainy: "Gezellig binnen dineren!",
+      sunny: "Perfect terras weer!",
+      autumn: "Herfst smaken beschikbaar!",
+      winter: "Warme winter gerechten!",
+      spring: "Verse lente menu!",
+      summer: "Verfrissende zomer opties!"
     };
     
     // Try to match context
@@ -486,7 +416,7 @@ export async function generateSmartUpsell({ userTaste = '', weatherCategory = 'n
     if (season === 'lente') return dutchFallbacks.spring;
     if (season === 'zomer') return dutchFallbacks.summer;
     
-    return "Onze chef heeft vandaag iets speciaals! 👨‍🍳";
+    return "Onze chef heeft vandaag iets speciaals!";
   }
 }
 
@@ -504,7 +434,7 @@ export async function generateDishTranslation({ title, description = '' }) {
     'Franse uiensoep': 'French Onion Soup',
     'Biefstuk Tolhuis': 'Tolhuis Steak',
     'Carpaccio ossenhaas': 'Carpaccio Tenderloin',
-    'Crème brûlée': 'Crème Brûlée',
+    'Cr�me brûlée': 'Cr�me Brûlée',
     'Tiramisu': 'Tiramisu',
     'Salade van de maand': 'Salad of the Month',
     'Soep van de maand': 'Soup of the Month',
@@ -515,18 +445,13 @@ export async function generateDishTranslation({ title, description = '' }) {
     'Glas wijn': 'Glass of Wine',
     'Koffie': 'Coffee',
     'Thee': 'Tea',
-    'Wellicht een glaasje water erbij?': 'Perhaps a glass of water with it?',
     'Friet': 'Fries',
     'Aardappelen': 'Potatoes',
     'Rijst': 'Rice',
     'Pasta': 'Pasta',
     'Salade': 'Salad',
     'Soep': 'Soup',
-    'Dessert': 'Dessert',
-    // Weekmenu items
-    'Hap van het seizoen': 'Seasonal Dish',
-    'Salade van de maand (VEGA VARIANT)': 'Salad of the Month (VEGETARIAN)',
-    'Soep van de maand (VEGA VARIANT)': 'Soup of the Month (VEGETARIAN)'
+    'Dessert': 'Dessert'
   };
   
   // Try fallback first
@@ -552,14 +477,14 @@ Guidelines:
 - Do NOT include "Description:" or any other labels
 
 Examples:
-"Franse uiensoep" → "French Onion Soup"
-"Biefstuk Tolhuis" → "Tolhuis Steak"
-"Salade van de maand" → "Salad of the Month"
-"Hap van het seizoen" → "Seasonal Dish"
+"Franse uiensoep" � "French Onion Soup"
+"Biefstuk Tolhuis" � "Tolhuis Steak"
+"Salade van de maand" � "Salad of the Month"
+"Hap van het seizoen" � "Seasonal Dish"
 
 Translate ONLY the title: ${title}`;
 
-  const aiTitle = await generateAIDescriptionClientSide(prompt, 'en');
+  const aiTitle = await generateAIDescriptionViaProxy(prompt, 'en');
   
   // Also translate description if provided
   let aiDescription = '';
@@ -577,7 +502,7 @@ Guidelines:
 
 Return ONLY the English description, nothing else.`;
     
-    aiDescription = await generateAIDescriptionClientSide(descPrompt, 'en');
+    aiDescription = await generateAIDescriptionViaProxy(descPrompt, 'en');
   }
   
   if (aiTitle) {

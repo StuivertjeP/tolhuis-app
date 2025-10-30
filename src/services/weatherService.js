@@ -17,12 +17,12 @@ const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
 export async function getCurrentWeather() {
   // Return cached weather if still valid
   if (weatherCache && weatherCacheTime && (Date.now() - weatherCacheTime) < CACHE_DURATION) {
-    console.log('🌤️ Using cached weather data');
+    console.log(' Using cached weather data');
     return weatherCache;
   }
 
   try {
-    console.log('🌤️ Fetching fresh weather data...');
+    console.log(' Fetching fresh weather data...');
     
     // For demo purposes, return mock weather data
     // In production, replace with actual OpenWeather API call
@@ -40,11 +40,11 @@ export async function getCurrentWeather() {
     weatherCache = mockWeather;
     weatherCacheTime = Date.now();
     
-    console.log('🌤️ Weather loaded:', mockWeather);
+    console.log(' Weather loaded:', mockWeather);
     return mockWeather;
     
   } catch (error) {
-    console.warn('⚠️ Weather fetch failed:', error);
+    console.warn(' Weather fetch failed:', error);
     return null;
   }
 }
@@ -124,18 +124,18 @@ export function getWelcomeMessage(weather = null, season = 'herfst', timeOfDay =
     // English welcome messages
     if (timeOfDay === 'ochtend') {
       const morningMessages = [
-        "Good morning! Great to see you! ☀️",
-        "Morning! Welcome to 't Tolhuis! 🌅",
-        "Good morning! Ready for breakfast? 🥐"
+        "Good morning! Great to see you! �",
+        "Morning! Welcome to 't Tolhuis! ",
+        "Good morning! Ready for breakfast? �"
       ];
       return morningMessages[Math.floor(Math.random() * morningMessages.length)];
     }
     
     if (timeOfDay === 'middag') {
       const afternoonMessages = [
-        "Good afternoon! Great to see you! 🌤️",
-        "Afternoon! Welcome to 't Tolhuis! ☀️",
-        "Good afternoon! Ready for lunch? 🍽️"
+        "Good afternoon! Great to see you! ",
+        "Afternoon! Welcome to 't Tolhuis! �",
+        "Good afternoon! Ready for lunch? "
       ];
       return afternoonMessages[Math.floor(Math.random() * afternoonMessages.length)];
     }
@@ -143,54 +143,54 @@ export function getWelcomeMessage(weather = null, season = 'herfst', timeOfDay =
     // Weather and season-based messages for evening/night
     if (weatherCategory === 'sunny_warm') {
       const sunnyMessages = [
-        "What lovely sunny weather! Great to see you! ☀️",
-        "Perfect sunny day! Welcome to 't Tolhuis! 🌞",
-        "Beautiful weather! Great to see you! ☀️"
+        "What lovely sunny weather! Great to see you! �",
+        "Perfect sunny day! Welcome to 't Tolhuis! �",
+        "Beautiful weather! Great to see you! �"
       ];
       return sunnyMessages[Math.floor(Math.random() * sunnyMessages.length)];
     }
     
     if (weatherCategory === 'rain_cool' || weatherCategory === 'rain_warm') {
       const rainyMessages = [
-        "Perfect weather for staying inside! Great to see you! 🌧️",
-        "Cozy rainy day! Welcome to 't Tolhuis! ☔",
-        "Rainy weather calls for good food! Great to see you! 🌧️"
+        "Perfect weather for staying inside! Great to see you! ",
+        "Cozy rainy day! Welcome to 't Tolhuis! �",
+        "Rainy weather calls for good food! Great to see you! "
       ];
       return rainyMessages[Math.floor(Math.random() * rainyMessages.length)];
     }
     
     if (season === 'herfst' && weatherCategory === 'clouds_cool') {
       const autumnMessages = [
-        "Autumn evening! Great to see you! 🍂",
-        "Cozy autumn atmosphere! Welcome! 🍁",
-        "Perfect autumn weather! Great to see you! 🍂"
+        "Autumn evening! Great to see you! �",
+        "Cozy autumn atmosphere! Welcome! �",
+        "Perfect autumn weather! Great to see you! �"
       ];
       return autumnMessages[Math.floor(Math.random() * autumnMessages.length)];
     }
     
     if (season === 'winter') {
       const winterMessages = [
-        "Cozy winter evening! Great to see you! ❄️",
-        "Perfect winter weather! Welcome! 🧊",
-        "Winter vibes! Great to see you! ❄️"
+        "Cozy winter evening! Great to see you! ",
+        "Perfect winter weather! Welcome! �",
+        "Winter vibes! Great to see you! "
       ];
       return winterMessages[Math.floor(Math.random() * winterMessages.length)];
     }
     
     if (season === 'zomer') {
       const summerMessages = [
-        "Lovely summer evening! Great to see you! 🌻",
-        "Perfect summer weather! Welcome! ☀️",
-        "Summer vibes! Great to see you! 🌞"
+        "Lovely summer evening! Great to see you! �",
+        "Perfect summer weather! Welcome! �",
+        "Summer vibes! Great to see you! �"
       ];
       return summerMessages[Math.floor(Math.random() * summerMessages.length)];
     }
     
     // Default English
     const defaultMessages = [
-      "Great to see you! ✨",
-      "Welcome to 't Tolhuis! 🌟",
-      "Good to have you here! ✨"
+      "Great to see you! ",
+      "Welcome to 't Tolhuis! ",
+      "Good to have you here! "
     ];
     return defaultMessages[Math.floor(Math.random() * defaultMessages.length)];
   }
