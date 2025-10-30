@@ -2894,7 +2894,7 @@ function App(){
           
           {/* Welcome Section - boven de foto */}
           <div className="mt-6 mb-4">
-            <h1 className="text-4xl sm:text-5xl font-serif font-medium text-red-700 mb-6">
+            <h1 className="text-4xl sm:text-5xl font-serif font-medium text-[rgb(120_53_15/var(--tw-text-opacity,1))] mb-6">
               {t.intro}
             </h1>
           </div>
