@@ -1,3 +1,4 @@
+HEAD
 # 't Tolhuis AI Menu App
 
 A React Native Web application for the AI-guided menu experience at 't Tolhuis restaurant. This app provides a personalized menu experience with multi-language support (Dutch/English) and intelligent dish recommendations.
@@ -112,3 +113,7 @@ Add new languages by extending the `i18n` object in `src/App.js`.
 ## License
 
 © 2025 SlimmeGast.ai All rights reserved.
+=======
+# tolhuis-app
+webapp Tolhuis
+>>>>>>> 21d73cb29ba576627e0c39f1aa8ed3927729aeaa
