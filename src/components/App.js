@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { i18n, quotes, demo, focusRing, recordEvent, sentenceCase, tasteToCode, getContextSignals, gpt5RankDishes, pickPairings, gpt5PairingCopy, generateChefRecommendationTitle } from "../App.js";
 import { translateDish } from "../utils/translationService.js";
-import { getCurrentPeriod, clearPeriodCache, getWeekmenuData, clearWeekmenuCache, getPairingData, clearPairingCache, getMenuData, clearMenuCache, generateAIPairings, getSmartBubblesData } from "../services/sheetsService.js";
+import { getCurrentPeriod, clearPeriodCache, getWeekmenuData, clearWeekmenuCache, getPairingData, clearPairingCache, getMenuData, clearMenuCache, generateAIPairings, getSmartBubblesData, saveOptInData } from "../services/sheetsService.js";
 import { generatePairingDescription, generateContextHint, generateSmartUpsell } from "../utils/openaiProxy.js";
 import { getCurrentWeather, getWeatherCategory, getCurrentSeason, getTimeOfDay, getWelcomeMessage } from "../services/weatherService.js";
 
@@ -75,7 +75,7 @@ function Hero({ src, alt = "Cafe 't Tolhuis", children }){
 
 function LangSwitchInline({ lang, onChange, className='' }){
   const handleLangChange = (newLang) => {
-    console.log(`Language switch clicked: ${lang} → ${newLang}`);
+    console.log(`Language switch clicked: ${lang} � ${newLang}`);
     console.log(`Current lang state: ${lang}`);
     onChange(newLang);
     console.log(`Called onChange with: ${newLang}`);
@@ -83,8 +83,8 @@ function LangSwitchInline({ lang, onChange, className='' }){
   
   return (
     <div className={`flex items-center gap-1 bg-white/70 backdrop-blur px-2 py-1 rounded-full border border-amber-900/10 shadow-sm ${className}`}>
-      <button aria-label="Nederlands" className={`px-2 py-1 rounded-full text-xs ${lang==='nl'? 'bg-amber-700 text-white' : 'text-amber-900'}`} onClick={()=>handleLangChange('nl')}>🇳🇱 {i18n.nl.langShort}</button>
-      <button aria-label="English" className={`px-2 py-1 rounded-full text-xs ${lang==='en'? 'bg-amber-700 text-white' : 'text-amber-900'}`} onClick={()=>handleLangChange('en')}>🇬🇧 {i18n.en.langShort}</button>
+       <button aria-label="Nederlands" className={`px-2 py-1 rounded-full text-xs ${lang==='nl'? 'bg-amber-700 text-white' : 'text-amber-900'}`} onClick={()=>handleLangChange('nl')}>🇳🇱 {i18n.nl.langShort}</button>
+       <button aria-label="English" className={`px-2 py-1 rounded-full text-xs ${lang==='en'? 'bg-amber-700 text-white' : 'text-amber-900'}`} onClick={()=>handleLangChange('en')}>🇬🇧 {i18n.en.langShort}</button>
     </div>
   );
 }
@@ -236,7 +236,7 @@ function SpecialsCard({ specials, lang }){
                   title_en: fallbackTitle,
                   description_en: item.description || item.desc || ''
                 };
-                console.log(`📚 Using weekmenu fallback for ${item.name}:`, fallbackTitle);
+                console.log(` Using weekmenu fallback for ${item.name}:`, fallbackTitle);
               }
             }
           }
@@ -270,7 +270,7 @@ function SpecialsCard({ specials, lang }){
                 itemName = it.title_en || aiTranslation?.title_en || it.name || it.title;
                 itemDesc = it.description_en || aiTranslation?.description_en || it.desc || it.description;
                 
-                console.log('🌐 Weekmenu translation:', {
+                console.log('� Weekmenu translation:', {
                   original: it.name,
                   manual: it.title_en,
                   ai: aiTranslation?.title_en,
@@ -287,7 +287,7 @@ function SpecialsCard({ specials, lang }){
                     <div className="font-medium">{itemName}</div>
                     {itemDesc && <div className="text-sm text-amber-900/80 mt-0.5">{sentenceCase(itemDesc)}</div>}
                 </div>
-                  {typeof it.price==='number' && <div className="shrink-0 font-semibold">€{it.price.toFixed(2)}</div>}
+                   {typeof it.price==='number' && <div className="shrink-0 font-semibold">€{it.price.toFixed(2)}</div>}
               </div>
               ); 
             })}
@@ -553,45 +553,14 @@ function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingT
   const showDeHoop = detectedSupplier === 'dehoop';
   
   // Debug info voor restaurants
-  console.log(`🏷️ Supplier for "${dish.name}":`, detectedSupplier, {
+  console.log(`Supplier for "${dish.name}":`, detectedSupplier, {
     explicitSupplier: dish.supplier
   });
   
-  const niceToMeatLogo = useImageCandidate([
-    'nice-to-meat.png',
-    '/nice-to-meat.png'
-  ]);
-  
-  const fishSupplierLogo = useImageCandidate([
-    'w-a-fish.png',
-    '/w-a-fish.png',
-    'fish-supplier.png',
-    '/fish-supplier.png',
-    'fish.png',
-    '/fish.png'
-  ]);
+  const niceToMeatLogo = 'nice-to-meat.png';
+  const fishSupplierLogo = 'w-a-fish.png';
 
   // Menu category icons - temporarily removed to fix error
-  
-  // WhatsApp Opt-in Modal State
-  const [showOptInModal, setShowOptInModal] = useState(false);
-  const [optInData, setOptInData] = useState({ name: '', phone: '' });
-  const [isSubmittingOptIn, setIsSubmittingOptIn] = useState(false);
-  
-  // Opt-in modal trigger logic
-  useEffect(() => {
-    if (step === 4) { // Only show on menu page
-      const timer = setTimeout(() => {
-        // Check if user hasn't already opted in (you could check localStorage)
-        const hasOptedIn = localStorage.getItem('tolhuis-optin');
-        if (!hasOptedIn) {
-          setShowOptInModal(true);
-        }
-      }, 30000); // Show after 30 seconds
-      
-      return () => clearTimeout(timer);
-    }
-  }, [step]);
   
   // Function to submit opt-in data to Google Sheets
   const submitOptInData = async () => {
@@ -603,32 +572,29 @@ function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingT
     setIsSubmittingOptIn(true);
     
     try {
-      // Create a simple form data object
-      const formData = new FormData();
-      formData.append('name', optInData.name.trim());
-      formData.append('phone', optInData.phone.trim());
-      formData.append('timestamp', new Date().toISOString());
-      formData.append('user_agent', navigator.userAgent);
-      formData.append('venue', 'tolhuis');
+      // Prepare data for saving
+      const dataToSave = {
+        name: optInData.name.trim(),
+        phone: optInData.phone.trim(),
+        lang: lang,
+        user_taste: user.taste,
+        user_diet: user.diet
+      };
       
-      // Send to Google Sheets via a simple webhook or form submission
-      // For now, we'll use a simple approach with Google Forms
-      const googleFormUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSdYOUR_FORM_ID/formResponse';
-      const formResponse = await fetch(googleFormUrl, {
-        method: 'POST',
-        body: formData,
-        mode: 'no-cors' // This allows the request to go through
-      });
+      // Save to Google Sheets (or localStorage for now)
+      const result = await saveOptInData(dataToSave);
       
-      // Mark as opted in
-      localStorage.setItem('tolhuis-optin', 'true');
-      setShowOptInModal(false);
-      
-      // Show success message
-      alert(lang === 'nl' ? 
-        'Bedankt! We nemen binnenkort contact met je op via WhatsApp.' : 
-        'Thank you! We will contact you soon via WhatsApp.'
-      );
+      if (result.success) {
+        setShowOptInModal(false);
+        
+        // Show success message
+        alert(lang === 'nl' ? 
+          'Bedankt! We nemen binnenkort contact met je op via WhatsApp.' : 
+          'Thank you! We will contact you soon via WhatsApp.'
+        );
+      } else {
+        throw new Error(result.message);
+      }
       
     } catch (error) {
       console.error('Error submitting opt-in data:', error);
@@ -639,12 +605,10 @@ function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingT
     } finally {
       setIsSubmittingOptIn(false);
     }
-  };
+  };           
   
-  const deHoopLogo = useImageCandidate([
-    'Logo-De-Hoop-zwart-goud.svg',
-    '/Logo-De-Hoop-zwart-gold.svg'
-  ]);
+  
+  const deHoopLogo = 'Logo-De-Hoop-zwart-goud.svg';
   
   const handlePairingClick = () => {
     if (pairings?.length > 0) {
@@ -706,7 +670,7 @@ function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingT
             <div className="flex-1 min-w-0 pr-2">
           <h3 className="text-[16px] sm:text-[18px] font-semibold leading-tight break-words">{displayName}</h3>
           <p className="text-xs sm:text-sm text-amber-900/80 mt-0.5">
-            {translateCategory(dish.subtitle || 'Gerecht')} • {venue.currency}{Number(dish.price).toFixed(2)}
+             {translateCategory(dish.subtitle || 'Gerecht')} • {venue.currency}{Number(dish.price).toFixed(2)}
           </p>
             </div>
           </div>
@@ -715,7 +679,7 @@ function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingT
           {displayDesc ? (
             <p className="text-[12px] sm:text-[13px] text-amber-900/80 leading-relaxed break-words">{sentenceCase(displayDesc)}</p>
           ) : (
-            <p className="text-[12px] sm:text-[13px] text-amber-900/70 break-words">{(dish.tags||[]).slice(0,3).join(' • ')}</p>
+             <p className="text-[12px] sm:text-[13px] text-amber-900/70 break-words">{(dish.tags||[]).slice(0,3).join(' • ')}</p>
           )}
           
           {/* Diet tags */}
@@ -755,6 +719,9 @@ function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingT
             }}
         />
       )}
+      
+      {/* WhatsApp Opt-in Modal */}
+      {/* (legacy OptInModal removed; using global popup in App) */}
     </>
   );
 }
@@ -849,21 +816,21 @@ function MenuFilters({ filters, onFilterChange, lang }){
 /********************
  * Footer & Toast
  ********************/
-function FooterBlock(){
+function FooterBlock({ lang }){
   return (
     <div className="text-center text-xs text-amber-900/70 leading-5">
       <div>© 2025 SlimmeGast.ai All rights reserved.</div>
-      <div>Uitschrijven | Privacy | Informatie</div>
+      <div className="mt-2">Uitschrijven | Privacy | Informatie</div>
     </div>
   );
 }
 
-function FixedFooter(){
+function FixedFooter({ lang }){
   return (
     <div className="fixed bottom-3 left-1/2 -translate-x-1/2 w-[min(92%,420px)] pointer-events-none z-40">
       <div className="pointer-events-auto">
         <div className="w-full border-t border-amber-900/20" />
-        <div className="pt-2"><FooterBlock /></div>
+        <div className="pt-2"><FooterBlock lang={lang} /></div>
       </div>
     </div>
   );
@@ -901,7 +868,8 @@ function SmartBubble({ message, onClose, position = 'bottom-right' }) {
   const getBottomPosition = () => {
     // Smart bubbles should be above the toaster (fixed at absolute bottom)
     const toasterHeight = 70; // Height of toaster + padding
-    return `calc(${toasterHeight}px + max(8px, env(safe-area-inset-bottom)))`;
+    const extraSpace = 20; // Extra ruimte tussen SmartBubble en "Bekijk het hele menu" button
+    return `calc(${toasterHeight}px + ${extraSpace}px + max(8px, env(safe-area-inset-bottom)))`;
   };
   
   return (
@@ -915,38 +883,209 @@ function SmartBubble({ message, onClose, position = 'bottom-right' }) {
         transform transition-all duration-300 ease-out
         ${isVisible ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-2 opacity-0 scale-95'}
       `}>
-        <button 
-          onClick={() => {
-            setIsVisible(false);
-            setTimeout(onClose, 300);
-          }}
-          className="absolute -top-1 -right-1 w-5 h-5 bg-amber-600 text-white rounded-full text-xs flex items-center justify-center hover:bg-amber-700"
-        >
-          ×
-        </button>
-        <p className="text-sm text-amber-900 font-medium pr-3">
-          {message}
-        </p>
+        <div className="flex justify-between items-start gap-2">
+          <p className="text-sm text-amber-900 font-medium flex-1">{message}</p>
+          <button 
+            onClick={() => {
+              setIsVisible(false);
+              setTimeout(onClose, 300);
+            }}
+            className="text-amber-700 hover:text-amber-900 text-lg leading-none flex-shrink-0 cursor-pointer z-10 relative"
+          >
+            ×
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
 function ToastBar({ open, text, onClose }){
+  const [autoCloseTimer, setAutoCloseTimer] = useState(null);
+  const [viewportHeight, setViewportHeight] = useState(window.innerHeight);
+  
+  // Handle iOS Safari dynamic viewport changes
+  React.useEffect(() => {
+    const updateViewportHeight = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+      setViewportHeight(window.innerHeight);
+    };
+    
+    // Initial set
+    updateViewportHeight();
+    
+    // Listen for viewport changes (iOS Safari address bar)
+    window.addEventListener('resize', updateViewportHeight);
+    window.addEventListener('orientationchange', updateViewportHeight);
+    
+    // Also listen for scroll events which can trigger viewport changes on iOS
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          updateViewportHeight();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('resize', updateViewportHeight);
+      window.removeEventListener('orientationchange', updateViewportHeight);
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+  
+  // Auto-close after 6 seconds
+  React.useEffect(() => {
+    if (open) {
+      const timer = setTimeout(() => {
+        onClose();
+      }, 6000); // 6 seconds
+      
+      setAutoCloseTimer(timer);
+      
+      return () => {
+        if (timer) clearTimeout(timer);
+      };
+    } else {
+      if (autoCloseTimer) {
+        clearTimeout(autoCloseTimer);
+        setAutoCloseTimer(null);
+      }
+    }
+  }, [open, onClose]);
+  
+  const handleClose = () => {
+    if (autoCloseTimer) {
+      clearTimeout(autoCloseTimer);
+      setAutoCloseTimer(null);
+    }
+    onClose();
+  };
+  
   return (
     <div 
       role="status" 
       aria-live="polite" 
-      className={`fixed left-1/2 -translate-x-1/2 z-[60] w-[90%] max-w-[420px] transition-all duration-300 ${open ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'}`} 
+      className={`fixed left-1/2 -translate-x-1/2 z-[99999] w-[90%] max-w-[420px] transition-all duration-300 ${open ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'}`} 
       style={{ 
         bottom: '0px',
         paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
         position: 'fixed',
-        transform: 'translateX(-50%)'
+        transform: 'translateX(-50%)',
+        // Use dynamic viewport height for iOS Safari compatibility
+        minHeight: 'auto',
+        // Force to bottom of viewport
+        bottom: 'env(safe-area-inset-bottom, 0px)',
+        marginBottom: '0px'
       }} 
-      onClick={onClose}
     >
-      <div className="px-4 py-3 rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.15)] bg-amber-800 text-amber-50 text-sm text-center">{text}</div>
+      <div className="px-4 py-3 rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.15)] bg-amber-800 text-amber-50 text-sm text-center relative">
+        {/* Close button */}
+        <button
+          onClick={handleClose}
+          className="absolute top-2 right-2 w-6 h-6 text-amber-200 hover:text-white transition-colors flex items-center justify-center text-lg font-bold"
+        >
+          ×
+        </button>
+        
+        {/* Text content */}
+        <div className="pr-6">{text}</div>
+      </div>
+    </div>
+  );
+}
+
+// WhatsApp Opt-in Subtle Slider (bottom-right)
+function WhatsAppOptInPopup({ isVisible, onClose, onSubmit, data, setData, isSubmitting, lang }) {
+  const [isAnimating, setIsAnimating] = useState(false);
+  
+  useEffect(() => {
+    if (isVisible) {
+      setIsAnimating(true);
+    }
+  }, [isVisible]);
+  
+  if (!isVisible) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 backdrop-blur-sm"
+        style={{ backgroundColor: 'rgb(243 232 210 / 30%)' }}
+        onClick={onClose}
+      />
+      
+      {/* Popup in center - nieuwe styling */}
+      <div className={`relative rounded-2xl shadow-lg border border-amber-200/50 w-full max-w-sm mx-auto transform transition-all duration-300 pointer-events-auto ${
+        isAnimating ? 'scale-100 translate-y-0 opacity-100' : 'scale-95 translate-y-4 opacity-0'
+      }`}
+      style={{ backgroundColor: 'rgb(248 242 232 / var(--tw-bg-opacity, 1))' }}>
+        <div className="px-4 py-4 border-b border-amber-200/30 flex items-center justify-between">
+          <div style={{ color: 'rgb(120 53 15 / 0.8)', fontFamily: 'Mill Sorts Goudy, serif', fontSize: '20px', fontWeight: '400' }}>
+            {lang === 'nl' ? 'Blijf op de hoogte via WhatsApp!' : 'Stay updated via WhatsApp!'}
+          </div>
+          <button onClick={onClose} className="text-amber-600 hover:text-amber-800 text-lg leading-none">×</button>
+        </div>
+        <div className="px-4 pb-4">
+          <div className="mb-4 text-sm leading-relaxed" style={{ color: 'rgb(120 53 15 / 0.8)' }}>
+            {lang === 'nl' 
+              ? 'Ontvang updates over onze evenementen, nieuwe gerechten en seizoensspecials. Laat je nummer achter en we sturen je een seintje als er weer iets leuks gebeurt.'
+              : 'Receive updates about our events, new dishes and seasonal specials. Leave your number and we\'ll send you a notification when something fun happens.'
+            }
+          </div>
+          
+          <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} className="space-y-3">
+            {/* Name field */}
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'rgb(120 53 15 / 0.8)' }}>
+                {lang === 'nl' ? 'Je naam' : 'Your name'}
+              </label>
+              <input
+                type="text"
+                value={data.name}
+                onChange={(e) => setData({...data, name: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white/80 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200"
+                style={{ color: 'rgb(120 53 15 / 0.8)' }}
+                required
+              />
+            </div>
+            
+            {/* Phone field */}
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'rgb(120 53 15 / 0.8)' }}>
+                {lang === 'nl' ? 'Telefoonnummer' : 'Phone number'}
+              </label>
+              <input
+                type="tel"
+                value={data.phone}
+                onChange={(e) => setData({...data, phone: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white/80 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200"
+                style={{ color: 'rgb(120 53 15 / 0.8)' }}
+                required
+              />
+            </div>
+            
+            {/* Submit button */}
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full bg-amber-600 text-amber-50 py-3 px-4 rounded-lg font-medium hover:bg-amber-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSubmitting 
+                ? (lang === 'nl' ? 'Versturen...' : 'Sending...')
+                : (lang === 'nl' ? 'Aanmelden' : 'Subscribe')
+              }
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1017,7 +1156,7 @@ function PairingSlideCard({ pairing, dish, venue, lang, isOpen, onClose, weather
         ? (pairing?.ai_description_en && pairing.ai_description_en.trim().length > 0)
         : (pairing?.ai_description_nl && pairing.ai_description_nl.trim().length > 0);
       
-      console.log('🤖 AI CHECK:', {
+      console.log(' AI CHECK:', {
         pairing: pairing?.suggestion,
         hasSheetDescription,
         hasAICachedDescription,
@@ -1030,7 +1169,7 @@ function PairingSlideCard({ pairing, dish, venue, lang, isOpen, onClose, weather
       // If we have AI cache, use it immediately
       if (hasAICachedDescription && !aiDescription) {
         const cachedText = lang === 'en' ? pairing.ai_description_en : pairing.ai_description_nl;
-        console.log('💾 Using AI cache:', cachedText);
+        console.log('� Using AI cache:', cachedText);
         setAiDescription(cachedText);
         return;
       }
@@ -1038,7 +1177,7 @@ function PairingSlideCard({ pairing, dish, venue, lang, isOpen, onClose, weather
       // Only generate NEW AI if no manual description AND no cache
       if (!hasSheetDescription && !hasAICachedDescription && !isLoadingAI && !aiDescription) {
         setIsLoadingAI(true);
-        console.log('🤖 GENERATING NEW AI for:', pairing?.suggestion);
+        console.log(' GENERATING NEW AI for:', pairing?.suggestion);
         
         try {
           const params = {
@@ -1048,20 +1187,20 @@ function PairingSlideCard({ pairing, dish, venue, lang, isOpen, onClose, weather
             dishDescription: dish?.desc || dish?.description || '',
             lang: lang
           };
-          console.log('🤖 Calling with params:', params);
+          console.log(' Calling with params:', params);
           
           const generated = await generatePairingDescription(params);
           
-          console.log('🤖 Generated result:', generated);
+          console.log(' Generated result:', generated);
           
           if (generated) {
-            console.log('🤖✅ AI SUCCESS + SAVED TO CACHE:', generated);
+            console.log('AI SUCCESS + SAVED TO CACHE:', generated);
             setAiDescription(generated);
           } else {
-            console.log('🤖❌ AI returned null/empty');
+            console.log('AI returned null/empty');
           }
         } catch (error) {
-          console.error('🤖❌ AI ERROR:', error);
+          console.error('AI ERROR:', error);
         } finally {
           setIsLoadingAI(false);
         }
@@ -1092,7 +1231,7 @@ function PairingSlideCard({ pairing, dish, venue, lang, isOpen, onClose, weather
         
         if (hint) {
           setContextHint(hint);
-          console.log('🌤️ Context hint for pairing:', hint);
+          console.log(' Context hint for pairing:', hint);
         }
       } catch (error) {
         console.warn('Context hint generation failed:', error);
@@ -1237,7 +1376,7 @@ function App(){
   
   // Debug language changes
   useEffect(() => {
-    console.log(`🌍 Language changed to: ${lang}`);
+    console.log(` Language changed to: ${lang}`);
     try {
       localStorage.setItem('lang', lang);
     } catch (e) {
@@ -1247,16 +1386,145 @@ function App(){
   
   // Force re-render when language changes
   const handleLangChange = (newLang) => {
-    console.log(`🔄 App handleLangChange: ${lang} → ${newLang}`);
+    console.log(` App handleLangChange: ${lang} � ${newLang}`);
     setLang(newLang);
-    console.log(`🔄 App setLang called with: ${newLang}`);
+    console.log(` App setLang called with: ${newLang}`);
   };
+  
+  
+  // Function to submit opt-in data to Google Sheets
+  const submitOptInData = async () => {
+    if (!optInData.name.trim() || !optInData.phone.trim()) {
+      alert(lang === 'nl' ? 'Vul beide velden in' : 'Please fill in both fields');
+      return;
+    }
+    
+    setIsSubmittingOptIn(true);
+    
+    try {
+      // Import the sheetsService
+      const { saveOptInData } = await import('../services/sheetsService.js');
+      
+      // Prepare data for sheetsService
+      const optInRecord = {
+        name: optInData.name.trim(),
+        phone: optInData.phone.trim(),
+        lang: lang,
+        user_taste: user.taste,
+        user_diet: user.diet
+      };
+      
+      // Save to Google Sheets via sheetsService
+      const result = await saveOptInData(optInRecord);
+      
+      if (result.success) {
+        // Clear form
+        setOptInData({ name: '', phone: '' });
+        setShowOptInModal(false);
+        
+        // Show success message
+        setToast({
+          open: true,
+          text: lang === 'nl' 
+            ? 'Bedankt! We nemen binnenkort contact met je op via WhatsApp.' 
+            : 'Thank you! We will contact you soon via WhatsApp.'
+        });
+      } else {
+        throw new Error(result.message);
+      }
+      
+    } catch (error) {
+      console.error('Error submitting opt-in data:', error);
+      alert(lang === 'nl' ? 
+        'Er ging iets mis. Probeer het later opnieuw.' : 
+        'Something went wrong. Please try again later.'
+      );
+    } finally {
+      setIsSubmittingOptIn(false);
+    }
+  };
+  
+  // WhatsApp Opt-in Modal State - using existing state from main component
+  
+  // Function to submit opt-in data - using main component function
   const [step, setStep] = useState(0); // 0=intro,1=taste,2=diet,3=name,4=menu
   const [user, setUser] = useState({ name:'', diet:'meat', taste:'Licht & Fris', phone:'' });
   const [menuFilters, setMenuFilters] = useState({ vegetarian: false, glutenFree: false });
   const [toast, setToast] = useState({ open:false, text:'' });
   const [showPairingCard, setShowPairingCard] = useState(false);
   const [currentPairing, setCurrentPairing] = useState(null);
+  
+  // WhatsApp teaser: show small button after 15s on intro (step 0)
+  const [showOptInTeaser, setShowOptInTeaser] = useState(false);
+  const [showOptInFloating, setShowOptInFloating] = useState(false);
+  useEffect(() => {
+    console.log('� Opt-in teaser effect: current step =', step);
+    if (step === 0) {
+      console.log('� Scheduling teaser timer for intro (10s)');
+      const timer = setTimeout(() => {
+        const hasOptedIn = localStorage.getItem('tolhuis-optin');
+        const hasDeclined = localStorage.getItem('tolhuis-optin-declined');
+        console.log(' Opt-in teaser timer fired. hasOptedIn:', hasOptedIn, 'hasDeclined:', hasDeclined);
+        
+        // Tijdelijk: altijd tonen voor testing (verwijder deze regel later)
+        console.log(' TEST MODE: Always showing WhatsApp button');
+        setShowOptInTeaser(true);
+        
+        // Originele logica (uitgecommentarieerd voor testing):
+        // if (!hasOptedIn && !hasDeclined) {
+        //   console.log(' Showing opt-in teaser button');
+        //   setShowOptInTeaser(true);
+        // }
+      }, 10000);
+      return () => clearTimeout(timer);
+    } else if (step === 4) {
+      // Also allow teaser on menu if not opted-in, after 10s
+      console.log('� Scheduling teaser timer for menu (10s)');
+      const timer = setTimeout(() => {
+        const hasOptedIn = localStorage.getItem('tolhuis-optin');
+        const hasDeclined = localStorage.getItem('tolhuis-optin-declined');
+        console.log(' Opt-in teaser (menu) timer fired. hasOptedIn:', hasOptedIn, 'hasDeclined:', hasDeclined);
+        
+        // Tijdelijk: altijd tonen voor testing (verwijder deze regel later)
+        console.log(' TEST MODE: Always showing WhatsApp button on menu');
+        setShowOptInTeaser(true);
+        
+        // Originele logica (uitgecommentarieerd voor testing):
+        // if (!hasOptedIn && !hasDeclined) {
+        //   console.log(' Showing opt-in teaser button on menu');
+        //   setShowOptInTeaser(true);
+        // }
+      }, 10000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowOptInTeaser(false);
+    }
+  }, [step]);
+
+  // Floating WhatsApp button after 20s on menu page
+  useEffect(() => {
+    if (step === 4) {
+      console.log('� Scheduling floating WhatsApp button timer (20s)');
+      const timer = setTimeout(() => {
+        const hasOptedIn = localStorage.getItem('tolhuis-optin');
+        const hasDeclined = localStorage.getItem('tolhuis-optin-declined');
+        console.log(' Floating WhatsApp timer fired. hasOptedIn:', hasOptedIn, 'hasDeclined:', hasDeclined);
+        
+        // Tijdelijk: altijd tonen voor testing
+        console.log(' TEST MODE: Always showing floating WhatsApp button');
+        setShowOptInFloating(true);
+        
+        // Originele logica (uitgecommentarieerd voor testing):
+        // if (!hasOptedIn && !hasDeclined) {
+        //   console.log(' Showing floating WhatsApp button');
+        //   setShowOptInFloating(true);
+        // }
+      }, 20000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowOptInFloating(false);
+    }
+  }, [step]);
   const [currentPeriod, setCurrentPeriod] = useState("Laden..."); // Fallback periode
   const [weekmenuData, setWeekmenuData] = useState([]);
   const [weather, setWeather] = useState(null);
@@ -1264,6 +1532,11 @@ function App(){
   const [welcomeMessage, setWelcomeMessage] = useState('');
   const [smartBubble, setSmartBubble] = useState(null);
   const [lastBubbleTime, setLastBubbleTime] = useState(0);
+  
+  // WhatsApp Opt-in Modal State
+  const [showOptInModal, setShowOptInModal] = useState(false);
+  const [optInData, setOptInData] = useState({ name: '', phone: '' });
+  const [isSubmittingOptIn, setIsSubmittingOptIn] = useState(false);
   const [smartBubblesData, setSmartBubblesData] = useState([]);
   const [pairingData, setPairingData] = useState([]);
   const [menuData, setMenuData] = useState([]); // Menu data uit Google Sheets
@@ -1279,7 +1552,7 @@ function App(){
     // 11:00 - 16:00 = Lunch (ook vrijdag tot 16:00)
     if (hour >= 11 && hour < 16) return 'lunch';
     
-    // VRIMIBO! Vrijdag vanaf 16:00 = Borrel 🍻
+     // VRIMIBO! Vrijdag vanaf 16:00 = Borrel 🍻
     if (dayOfWeek === 5 && hour >= 16) return 'borrel';
     
     // 16:00/17:00 - 23:00 = Diner (ma-do vanaf 16:00, anders 17:00)
@@ -1304,40 +1577,40 @@ function App(){
         const translations = {};
         
         // Process ALL weekmenu items (no limit - dynamic based on Google Sheets)
-        console.log(`🔄 Pre-loading translations for ${weekmenuData.length} weekmenu items...`);
+        console.log(` Pre-loading translations for ${weekmenuData.length} weekmenu items...`);
         for (const dish of weekmenuData) {
           const dishId = dish.id || `${dish.name}-${dish.title}`;
           
           // Skip if manual translation exists
           if (dish.title_en && dish.title_en.trim() !== '' && dish.description_en && dish.description_en.trim() !== '') {
-            console.log(`⏭️ Skipping ${dish.name} - manual translation exists`);
+            console.log(`� Skipping ${dish.name} - manual translation exists`);
             continue;
           }
           
           // Skip if already cached
           if (dish.ai_title_en && dish.ai_title_en.trim() !== '') {
-            console.log(`⏭️ Skipping ${dish.name} - AI cache exists`);
+            console.log(`� Skipping ${dish.name} - AI cache exists`);
             continue;
           }
           
           // Generate AI translation
           try {
-            console.log(`🤖 Generating AI translation for ${dish.name}...`);
+            console.log(` Generating AI translation for ${dish.name}...`);
             const translation = await generateDishTranslation({
               title: dish.title || dish.name,
               description: dish.description || dish.desc || ''
             });
             translations[dishId] = translation;
-            console.log(`✅ Pre-loaded translation for ${dish.name}:`, translation);
+            console.log(` Pre-loaded translation for ${dish.name}:`, translation);
           } catch (error) {
-            console.warn(`❌ Pre-load failed for ${dish.name}:`, error);
+            console.warn(` Pre-load failed for ${dish.name}:`, error);
           }
         }
         
         // Also pre-load translations for top ranked dishes (including specialDish)
         if (ranked && ranked.length > 0) {
           const topDishes = ranked.slice(0, 10); // Pre-load top 10 dishes to catch specialDish
-          console.log(`🔄 Pre-loading translations for top ${topDishes.length} ranked dishes...`);
+          console.log(` Pre-loading translations for top ${topDishes.length} ranked dishes...`);
           for (const dish of topDishes) {
             const dishId = dish.id || `${dish.name}-${dish.title}`;
             
@@ -1353,22 +1626,22 @@ function App(){
             
             // Generate AI translation
             try {
-              console.log(`🤖 Generating AI translation for top dish ${dish.name}...`);
+              console.log(` Generating AI translation for top dish ${dish.name}...`);
               const translation = await generateDishTranslation({
                 title: dish.title || dish.name,
                 description: dish.description || dish.desc || ''
               });
               translations[dishId] = translation;
-              console.log(`✅ Pre-loaded translation for top dish ${dish.name}:`, translation);
+              console.log(` Pre-loaded translation for top dish ${dish.name}:`, translation);
             } catch (error) {
-              console.warn(`❌ Pre-load failed for top dish ${dish.name}:`, error);
+              console.warn(` Pre-load failed for top dish ${dish.name}:`, error);
             }
           }
         }
         
         // Also pre-load translations for personal recommendations
         if (personalRecommendations && personalRecommendations.length > 0) {
-          console.log(`🔄 Pre-loading translations for ${personalRecommendations.length} personal recommendations...`);
+          console.log(` Pre-loading translations for ${personalRecommendations.length} personal recommendations...`);
           for (const dish of personalRecommendations) {
             const dishId = dish.id || `${dish.name}-${dish.title}`;
             
@@ -1384,40 +1657,40 @@ function App(){
             
             // Generate AI translation
             try {
-              console.log(`🤖 Generating AI translation for personal recommendation ${dish.name}...`);
+              console.log(` Generating AI translation for personal recommendation ${dish.name}...`);
               const translation = await generateDishTranslation({
                 title: dish.title || dish.name,
                 description: dish.description || dish.desc || ''
               });
               translations[dishId] = translation;
-              console.log(`✅ Pre-loaded translation for personal recommendation ${dish.name}:`, translation);
+              console.log(` Pre-loaded translation for personal recommendation ${dish.name}:`, translation);
             } catch (error) {
-              console.warn(`❌ Pre-load failed for personal recommendation ${dish.name}:`, error);
+              console.warn(` Pre-load failed for personal recommendation ${dish.name}:`, error);
             }
           }
         }
         
         // Also pre-load translations for common pairings
-        console.log(`🔄 Pre-loading translations for common pairings...`);
+        console.log(` Pre-loading translations for common pairings...`);
         const commonPairings = ['Speciaal biertje', 'Huiswijn', 'Cappuccino', 'Espresso', 'Thee', 'Frisdrank'];
         for (const pairing of commonPairings) {
           try {
-            console.log(`🤖 Generating AI translation for pairing ${pairing}...`);
+            console.log(` Generating AI translation for pairing ${pairing}...`);
             const translation = await generateDishTranslation({
               title: pairing,
               description: ''
             });
             translations[`pairing_${pairing}`] = translation;
-            console.log(`✅ Pre-loaded pairing translation for ${pairing}:`, translation);
+            console.log(` Pre-loaded pairing translation for ${pairing}:`, translation);
           } catch (error) {
-            console.warn(`❌ Pre-load failed for pairing ${pairing}:`, error);
+            console.warn(` Pre-load failed for pairing ${pairing}:`, error);
           }
         }
         
         setPreloadedTranslations(translations);
-        console.log('🎯 Pre-loaded translations:', translations);
+        console.log(' Pre-loaded translations:', translations);
       } catch (error) {
-        console.warn('❌ Pre-loading translations failed:', error);
+        console.warn(' Pre-loading translations failed:', error);
       }
     };
     
@@ -1431,7 +1704,7 @@ function App(){
     
     // Don't show bubbles too frequently (min 15 seconds apart)
     if (timeSinceLastBubble < 15000) {
-      console.log('🎯 Bubble cooldown active, skipping...');
+      console.log(' Bubble cooldown active, skipping...');
       return;
     }
     
@@ -1441,6 +1714,13 @@ function App(){
     }
     
     try {
+      console.log(' Generating SmartBubble with data:', {
+        userTaste: user.taste,
+        weatherCategory: weatherCategory,
+        temp: weather?.temp || 15,
+        smartBubblesDataLength: smartBubblesData.length
+      });
+      
       const upsellMessage = await generateSmartUpsell({
         userTaste: user.taste,
         weatherCategory: weatherCategory,
@@ -1451,13 +1731,17 @@ function App(){
         smartBubblesData: smartBubblesData
       });
       
+      console.log(' Generated upsell message:', upsellMessage);
+      
       if (upsellMessage) {
         setSmartBubble({
           message: upsellMessage,
-          position: Math.random() > 0.5 ? 'bottom-right' : 'bottom-left'
+          position: 'bottom-left'
         });
         setLastBubbleTime(now);
-        console.log('🎯 Smart bubble triggered:', upsellMessage);
+        console.log(' Smart bubble triggered:', upsellMessage);
+      } else {
+        console.log(' No upsell message generated');
       }
     } catch (error) {
       console.warn('Failed to generate smart bubble:', error);
@@ -1466,18 +1750,31 @@ function App(){
 
   // Auto-trigger smart bubbles based on user behavior
   useEffect(() => {
-    if (step === 4 && weather) {
+    if (step === 4) {
+      console.log(' Setting up SmartBubble timers for step 4, weather:', weather);
       // Show first bubble after 10 seconds on menu page
-      const timer1 = setTimeout(triggerSmartBubble, 10000);
+      const timer1 = setTimeout(() => {
+        console.log(' Timer 1 (10s) triggered');
+        triggerSmartBubble();
+      }, 10000);
       
       // Show second bubble after 30 seconds
-      const timer2 = setTimeout(triggerSmartBubble, 30000);
+      const timer2 = setTimeout(() => {
+        console.log(' Timer 2 (30s) triggered');
+        triggerSmartBubble();
+      }, 30000);
       
       // Show third bubble after 60 seconds
-      const timer3 = setTimeout(triggerSmartBubble, 60000);
+      const timer3 = setTimeout(() => {
+        console.log(' Timer 3 (60s) triggered');
+        triggerSmartBubble();
+      }, 60000);
       
       // Show fourth bubble after 90 seconds
-      const timer4 = setTimeout(triggerSmartBubble, 90000);
+      const timer4 = setTimeout(() => {
+        console.log(' Timer 4 (90s) triggered');
+        triggerSmartBubble();
+      }, 90000);
       
       return () => {
         clearTimeout(timer1);
@@ -1494,8 +1791,8 @@ function App(){
       try {
         const data = await getSmartBubblesData();
         setSmartBubblesData(data);
-        console.log('🎯 SmartBubbles data loaded:', data.length, 'items');
-        console.log('🎯 SmartBubbles data sample:', data.slice(0, 3));
+        console.log(' SmartBubbles data loaded:', data.length, 'items');
+        console.log(' SmartBubbles data sample:', data.slice(0, 3));
       } catch (error) {
         console.warn('Failed to load SmartBubbles data:', error);
         setSmartBubblesData([]);
@@ -1506,20 +1803,20 @@ function App(){
   
   // Debug log when pairingData changes
   useEffect(() => {
-    console.log('📊 pairingData state changed:', pairingData.length, 'items');
+    console.log('� pairingData state changed:', pairingData.length, 'items');
     if (pairingData.length > 0) {
-      console.log('📊 pairingData sample:', pairingData.slice(0, 2));
+      console.log('� pairingData sample:', pairingData.slice(0, 2));
     } else {
-      console.log('⚠️ pairingData is EMPTY! Why?');
+      console.log(' pairingData is EMPTY! Why?');
       console.trace('Stack trace for empty pairingData');
     }
   }, [pairingData]);
   
   // Debug log when menuData changes
   useEffect(() => {
-    console.log('🍽️ menuData state changed:', menuData.length, 'items');
+    console.log(' menuData state changed:', menuData.length, 'items');
     if (menuData.length > 0) {
-      console.log('🍽️ menuData sample:', menuData.slice(0, 2));
+      console.log(' menuData sample:', menuData.slice(0, 2));
     }
   }, [menuData]);
 
@@ -1604,7 +1901,7 @@ function App(){
           title.includes('sparkling') || title.includes('mineraal') || title.includes('frisdrank') ||
           // Wijnmerken
           title.includes('casa silva') || title.includes('pucari') || title.includes('domaine') ||
-          title.includes('château') || title.includes('bordeaux') || title.includes('burgundy') ||
+          title.includes('ch�teau') || title.includes('bordeaux') || title.includes('burgundy') ||
           title.includes('pinot') || title.includes('chardonnay') || title.includes('sauvignon') ||
           title.includes('merlot') || title.includes('cabernet') || title.includes('syrah') ||
           title.includes('riesling') || title.includes('gewürztraminer') || title.includes('malbec') ||
@@ -1619,7 +1916,7 @@ function App(){
       
       // DEBUG: Log items that are being filtered out
       if (isDrink) {
-        console.log('🚫 FILTERING OUT DRINK:', { 
+        console.log('� FILTERING OUT DRINK:', { 
           name: dish.name, 
           section: dish.section, 
           category: dish.category,
@@ -1638,8 +1935,8 @@ function App(){
     
     // DAYPART-SPECIFIC RECOMMENDATIONS
     const currentDaypart = safeContext.daypart;
-    console.log('🍽️ Creating daypart-specific recommendations for:', currentDaypart);
-    console.log('🔍 Available dishes for ranking:', rankedMenuDishes.map(d => ({ 
+    console.log(' Creating daypart-specific recommendations for:', currentDaypart);
+    console.log(' Available dishes for ranking:', rankedMenuDishes.map(d => ({ 
       name: d.name, 
       type: d.type, 
       diet: d.diet, 
@@ -1661,9 +1958,9 @@ function App(){
     });
     
     if (drinksInRanking.length > 0) {
-      console.error('❌ DRINKS STILL IN RANKING:', drinksInRanking.map(d => d.name));
+      console.error(' DRINKS STILL IN RANKING:', drinksInRanking.map(d => d.name));
     } else {
-      console.log('✅ NO DRINKS IN RANKING - FILTERING WORKING!');
+      console.log(' NO DRINKS IN RANKING - FILTERING WORKING!');
     }
     
     if (currentDaypart === 'dinner') {
@@ -1703,8 +2000,8 @@ function App(){
                 !name.includes('dessert'));
       });
       
-      console.log('🍽️ Voorgerechten found:', voorgerechten.map(v => v.name));
-      console.log('🍽️ Hoofdgerechten found:', hoofdgerechten.map(h => h.name));
+      console.log(' Voorgerechten found:', voorgerechten.map(v => v.name));
+      console.log(' Hoofdgerechten found:', hoofdgerechten.map(h => h.name));
       
       const recommendations = [];
       
@@ -1756,7 +2053,7 @@ function App(){
         recommendations.push(...uniqueRemainingDishes.slice(0, 2 - recommendations.length));
       }
       
-      console.log('🍽️ Dinner recommendations (1 voorgerecht + 1 hoofdgerecht):', recommendations.map(r => ({ name: r.name, section: r.section, category: r.category })));
+      console.log(' Dinner recommendations (1 voorgerecht + 1 hoofdgerecht):', recommendations.map(r => ({ name: r.name, section: r.section, category: r.category })));
       return recommendations.slice(0, 2); // Zorg dat we precies 2 gerechten hebben
       
     } else if (currentDaypart === 'borrel') {
@@ -1815,7 +2112,7 @@ function App(){
         recommendations.push(...remainingDishes.slice(0, 2 - recommendations.length));
       }
       
-      console.log('🍻 Borrel recommendations (precies 2):', recommendations.map(r => r.name));
+      console.log('� Borrel recommendations (precies 2):', recommendations.map(r => r.name));
       return recommendations.slice(0, 2);
       
     } else if (currentDaypart === 'breakfast') {
@@ -1874,7 +2171,7 @@ function App(){
         recommendations.push(...remainingDishes.slice(0, 2 - recommendations.length));
       }
       
-      console.log('🌅 Breakfast recommendations (precies 2):', recommendations.map(r => r.name));
+      console.log(' Breakfast recommendations (precies 2):', recommendations.map(r => r.name));
       return recommendations.slice(0, 2);
       
     } else if (currentDaypart === 'lunch') {
@@ -1934,7 +2231,7 @@ function App(){
         recommendations.push(...remainingDishes.slice(0, 2 - recommendations.length));
       }
       
-      console.log('🥗 Lunch recommendations (precies 2):', recommendations.map(r => r.name));
+      console.log('� Lunch recommendations (precies 2):', recommendations.map(r => r.name));
       return recommendations.slice(0, 2);
       
     } else {
@@ -1965,7 +2262,7 @@ function App(){
                  category.includes('coffee') || category.includes('tea') || category.includes('drinken'));
       }).slice(0, 2);
       
-      console.log('🔄 Fallback recommendations (precies 2):', fallbackRecs.map(r => ({ name: r.name, section: r.section })));
+      console.log(' Fallback recommendations (precies 2):', fallbackRecs.map(r => ({ name: r.name, section: r.section })));
       return fallbackRecs;
     }
   }, [menuData, user, context, weekmenuData]);
@@ -1980,7 +2277,7 @@ function App(){
     const currentTasteCode = tasteToCode(user.taste);
     const newTasteLabel = i18n[lang].tastes.find(t => t.code === currentTasteCode)?.label;
     
-    console.log('🌍 Language change effect:', {
+    console.log(' Language change effect:', {
       lang,
       currentUserTaste: user.taste,
       currentTasteCode,
@@ -1989,17 +2286,17 @@ function App(){
     });
     
     // ALTIJD dish pairings cache legen bij taalwisseling
-    console.log('🔄 Clearing dish pairings cache due to language change');
+    console.log(' Clearing dish pairings cache due to language change');
     setDishPairings({});
     
     // Ook pairing data cache legen voor stabiliteit
     if (typeof window !== 'undefined' && window.clearPairingCache) {
       window.clearPairingCache();
-      console.log('🔄 Cleared pairing data cache');
+      console.log(' Cleared pairing data cache');
     }
     
     if (newTasteLabel && newTasteLabel !== user.taste) {
-      console.log('🔄 Updating user taste from', user.taste, 'to', newTasteLabel);
+      console.log(' Updating user taste from', user.taste, 'to', newTasteLabel);
       setUser(prev => ({ ...prev, taste: newTasteLabel }));
     }
   }, [lang]);
@@ -2039,7 +2336,7 @@ function App(){
         const welcomeMsg = getWelcomeMessage(weatherData, season, timeOfDay, lang);
         setWelcomeMessage(welcomeMsg);
         
-        console.log('🌤️ Weather loaded:', weatherData, '- Category:', category, '- Time:', timeOfDay, '- Season:', season, '- Welcome:', welcomeMsg);
+        console.log(' Weather loaded:', weatherData, '- Category:', category, '- Time:', timeOfDay, '- Season:', season, '- Welcome:', welcomeMsg);
       } catch (error) {
         console.warn('Could not load weather:', error);
         setWelcomeMessage(lang === 'nl' ? 'Fijn dat je er bent!' : 'Great to see you!');
@@ -2057,8 +2354,8 @@ function App(){
         clearWeekmenuCache();
         const weekmenu = await getWeekmenuData();
         setWeekmenuData(weekmenu);
-        console.log('✅ Weekmenu geladen uit Sheets:', weekmenu.length, 'items');
-        console.log('📋 Weekmenu items:', weekmenu.map(item => ({ 
+        console.log(' Weekmenu geladen uit Sheets:', weekmenu.length, 'items');
+        console.log('� Weekmenu items:', weekmenu.map(item => ({ 
           id: item.id, 
           title: item.title, 
           name: item.name,
@@ -2070,13 +2367,13 @@ function App(){
         
         // DEBUG: Check if weekmenu items have the right structure
         if (weekmenu.length > 0) {
-          console.log('🔍 First weekmenu item structure:', weekmenu[0]);
-          console.log('🔍 All weekmenu item keys:', Object.keys(weekmenu[0]));
+          console.log(' First weekmenu item structure:', weekmenu[0]);
+          console.log(' All weekmenu item keys:', Object.keys(weekmenu[0]));
         } else {
-          console.log('⚠️ No weekmenu items found!');
+          console.log(' No weekmenu items found!');
         }
       } catch (error) {
-        console.warn('❌ Kon weekmenu niet laden uit Sheets:', error);
+        console.warn(' Kon weekmenu niet laden uit Sheets:', error);
         setWeekmenuData([]);
       }
     };
@@ -2086,27 +2383,27 @@ function App(){
 
   // Haal pairing data op uit Google Sheets
   useEffect(() => {
-    console.log('🚨🚨🚨 useEffect voor pairing data wordt aangeroepen! lang:', lang);
+    console.log(' useEffect voor pairing data wordt aangeroepen! lang:', lang);
     const loadPairings = async () => {
       try {
-        console.log('🍷 Loading pairing data...');
+        console.log('� Loading pairing data...');
         // Clear cache to force fresh data
         clearPairingCache();
         // Clear dish pairings cache to force fresh generation
         setDishPairings({});
         // Add timestamp to force fresh fetch
         const timestamp = Date.now();
-        console.log('🕐 Force refresh timestamp:', timestamp);
+        console.log('�� Force refresh timestamp:', timestamp);
         const pairings = await getPairingData(true); // Force refresh
-        console.log('🔥 getPairingData returned:', pairings);
-        console.log('🔥 getPairingData length:', pairings?.length);
-        console.log('🔥 getPairingData type:', typeof pairings);
-        console.log('🔥 getPairingData is array:', Array.isArray(pairings));
+        console.log(' getPairingData returned:', pairings);
+        console.log(' getPairingData length:', pairings?.length);
+        console.log(' getPairingData type:', typeof pairings);
+        console.log(' getPairingData is array:', Array.isArray(pairings));
         setPairingData(pairings);
-        console.log('✅ Pairing data loaded:', pairings.length, 'items');
-        console.log('🍷 Pairing data details:', pairings);
-        console.log('🍷 Pairing data sample:', pairings.slice(0, 3));
-        console.log('🍷 Pairing dish IDs:', pairings.map(p => p.dish_id));
+        console.log(' Pairing data loaded:', pairings.length, 'items');
+        console.log('� Pairing data details:', pairings);
+        console.log('� Pairing data sample:', pairings.slice(0, 3));
+        console.log('� Pairing dish IDs:', pairings.map(p => p.dish_id));
       } catch (error) {
         console.warn('Kon pairing data niet laden uit Sheets:', error);
         setPairingData([]);
@@ -2120,11 +2417,11 @@ function App(){
   useEffect(() => {
     const loadPairingsForDishes = async () => {
       if (menuData.length > 0 && pairingData.length === 0) {
-        console.log('🔄 Loading pairing data for dishes...');
+        console.log(' Loading pairing data for dishes...');
         try {
           const pairings = await getPairingData(true);
           setPairingData(pairings);
-          console.log('✅ Pairing data loaded for dishes:', pairings.length, 'items');
+          console.log(' Pairing data loaded for dishes:', pairings.length, 'items');
         } catch (error) {
           console.warn('Failed to load pairing data for dishes:', error);
         }
@@ -2136,21 +2433,21 @@ function App(){
 
   // Haal menu data op uit Google Sheets
   useEffect(() => {
-    console.log('🚨 useEffect voor menu data wordt aangeroepen!');
+    console.log(' useEffect voor menu data wordt aangeroepen!');
     
     const loadMenu = async () => {
       try {
-        console.log('🍽️ Loading menu data...');
-        console.log('🔍 About to call clearMenuCache...');
+        console.log(' Loading menu data...');
+        console.log(' About to call clearMenuCache...');
         // Clear cache to prevent duplicates
         clearMenuCache();
-        console.log('🔍 About to call getMenuData...');
+        console.log(' About to call getMenuData...');
         const menu = await getMenuData(true); // Force refresh
-        console.log('🔍 getMenuData returned:', menu);
+        console.log(' getMenuData returned:', menu);
         setMenuData(menu);
-        console.log('✅ Menu data loaded:', menu.length, 'items');
-        console.log('🍽️ Menu data details:', menu);
-        console.log('🍽️ Menu sections found:', [...new Set(menu.map(m => m.section))]);
+        console.log(' Menu data loaded:', menu.length, 'items');
+        console.log(' Menu data details:', menu);
+        console.log(' Menu sections found:', [...new Set(menu.map(m => m.section))]);
       } catch (error) {
         console.warn('Kon menu data niet laden uit Sheets:', error);
         setMenuData([]);
@@ -2171,13 +2468,13 @@ function App(){
     
     if (weekmenuData.length > 0) {
       menuData = weekmenuData;
-      console.log('✅ Using weekmenuData from Google Sheets:', menuData.length, 'items');
+      console.log(' Using weekmenuData from Google Sheets:', menuData.length, 'items');
     } else {
       menuData = [];
-      console.log('⚠️ No data available - add items to Google Sheets');
+      console.log(' No data available - add items to Google Sheets');
     }
     
-    console.log('📊 Menu Data Debug:', {
+    console.log('� Menu Data Debug:', {
       weekmenuDataLength: weekmenuData.length,
       menuDataLength: menuData.length,
       usingWeekmenu: weekmenuData.length > 0,
@@ -2186,7 +2483,7 @@ function App(){
     });
     
     const filtered = menuData.filter(dish => {
-      console.log('🔍 Filtering dish:', {
+      console.log(' Filtering dish:', {
         name: dish.name,
         diet: dish.diet,
         tags: dish.tags,
@@ -2196,23 +2493,23 @@ function App(){
       });
       
       if (menuFilters.vegetarian && !(dish.diet?.includes('vega') || dish.diet?.includes('veg') || dish.diet?.includes('v') || dish.diet?.includes('vegetarisch') || dish.type === 'vega')) {
-        console.log('❌ Filtered out (vegetarian):', dish.name, { diet: dish.diet, type: dish.type });
+        console.log(' Filtered out (vegetarian):', dish.name, { diet: dish.diet, type: dish.type });
         return false;
       }
       if (menuFilters.glutenFree && !(dish.diet?.includes('glutfree') || dish.tags?.includes('glutfree') || dish.tags?.includes('gf') || dish.diet?.includes('glutenvrij') || dish.tags?.includes('glutenvrij'))) {
-        console.log('❌ Filtered out (gluten-free):', dish.name, { diet: dish.diet, tags: dish.tags });
+        console.log(' Filtered out (gluten-free):', dish.name, { diet: dish.diet, tags: dish.tags });
         return false;
       }
-      console.log('✅ Keeping dish:', dish.name);
+      console.log(' Keeping dish:', dish.name);
       return true;
     });
     
-    console.log('📊 Final filtered dishes:', filtered.length, filtered);
+    console.log('� Final filtered dishes:', filtered.length, filtered);
     return filtered;
   }, [menuFilters, weekmenuData, weekmenuData.length]);
   
   const ranked = useMemo(()=> {
-    console.log('🔄 Ranking dishes:', { 
+    console.log(' Ranking dishes:', { 
       filteredDishesLength: filteredDishes.length, 
       user: user,
       context: context,
@@ -2220,40 +2517,40 @@ function App(){
     });
     const safeContext = context || { daypart: 'dinner' };
     const result = gpt5RankDishes({ user, context: safeContext, dishes: filteredDishes });
-    console.log('📊 Ranked result:', result);
+    console.log('� Ranked result:', result);
     return result;
   }, [user, context, filteredDishes]);
   
   const specialDish = useMemo(()=>{ 
-    console.log('🔍 Finding special dish:', { weekmenuDataLength: weekmenuData.length, rankedLength: ranked.length, currentDaypart: context?.daypart });
+    console.log(' Finding special dish:', { weekmenuDataLength: weekmenuData.length, rankedLength: ranked.length, currentDaypart: context?.daypart });
     
     // Gebruik weekmenu data om special dish te bepalen
     if (weekmenuData.length > 0) {
       // Neem het BESTE matching item uit weekmenu (eerste in ranked lijst)
       const weekmenuIds = new Set(weekmenuData.map(item => item.id));
       const found = ranked.find(d => weekmenuIds.has(d.id)) || null;
-      console.log('✅ Special dish found:', found, 'from weekmenu items:', Array.from(weekmenuIds));
+      console.log(' Special dish found:', found, 'from weekmenu items:', Array.from(weekmenuIds));
       return found;
     }
     
     // Als er geen weekmenu data is, neem het hoogst gerankte gerecht
     if (ranked.length > 0) {
-      console.log('⚠️ No weekmenu data - using highest ranked dish:', ranked[0].name);
+      console.log(' No weekmenu data - using highest ranked dish:', ranked[0].name);
       return ranked[0];
     }
     
     // Geen data beschikbaar
-    console.log('❌ No data available for special dish');
+    console.log(' No data available for special dish');
     return null;
   }, [ranked, weekmenuData, context]);
 
   // Categorize menu items based on their type from Google Sheets
   const menuCategories = useMemo(() => {
-    console.log('🔄 menuCategories useMemo triggered!');
-    console.log('📊 menuData length:', menuData.length);
+    console.log(' menuCategories useMemo triggered!');
+    console.log('� menuData length:', menuData.length);
     
     if (!menuData.length) {
-      console.log('📊 No menu data available');
+      console.log('� No menu data available');
       return {
         ontbijt: [],
         lunch: [],
@@ -2265,8 +2562,8 @@ function App(){
       };
     }
     
-    console.log('📊 Processing menu data:', menuData.length, 'items');
-    console.log('📊 First few items:', menuData.slice(0, 3));
+    console.log('� Processing menu data:', menuData.length, 'items');
+    console.log('� First few items:', menuData.slice(0, 3));
     
     const categories = {
       ontbijt: [],
@@ -2284,7 +2581,7 @@ function App(){
       index === self.findIndex(t => t.id === item.id)
     );
     
-    console.log(`🔄 Original items: ${menuData.length}, Unique items: ${uniqueItems.length}`);
+    console.log(` Original items: ${menuData.length}, Unique items: ${uniqueItems.length}`);
     
     uniqueItems.forEach(item => {
       const category = item.category?.toLowerCase() || '';
@@ -2292,14 +2589,14 @@ function App(){
       const section = item.section || '';
       const title = item.title || 'Unknown';
       
-      console.log(`📋 Item: "${title}" with category: "${category}", type: "${type}" and section: "${section}"`);
+      console.log(`� Item: "${title}" with category: "${category}", type: "${type}" and section: "${section}"`);
       
       // SIMPLE FILTER: Only use CATEGORY column (most reliable)
       const isDrink = category?.toLowerCase() === 'drinken';
       
       // DEBUG: Log items that are being filtered out
       if (isDrink) {
-        console.log('🚫 FILTERING OUT DRINK FROM FOOD CATEGORIES:', { 
+        console.log('� FILTERING OUT DRINK FROM FOOD CATEGORIES:', { 
           name: title, 
           section: section, 
           category: category
@@ -2309,22 +2606,22 @@ function App(){
       // Categorize by CATEGORY (new structure)
       if (category === 'breakfast' || category === 'ontbijt') {
         categories.ontbijt.push(item);
-        console.log(`✅ Added to ontbijt: ${title}`);
+        console.log(` Added to ontbijt: ${title}`);
       } else if (category === 'lunch') {
         categories.lunch.push(item);
-        console.log(`✅ Added to lunch: ${title}`);
+        console.log(` Added to lunch: ${title}`);
       } else if (category === 'starter' || category === 'voorgerecht') {
         categories.voorgerecht.push(item);
-        console.log(`✅ Added to voorgerecht: ${title}`);
+        console.log(` Added to voorgerecht: ${title}`);
       } else if (category === 'diner' || category === 'main' || category === 'hoofdgerecht') {
         categories.diner.push(item);
-        console.log(`✅ Added to diner: ${title}`);
+        console.log(` Added to diner: ${title}`);
       } else if (category === 'dessert') {
         categories.dessert.push(item);
-        console.log(`✅ Added to dessert: ${title}`);
+        console.log(` Added to dessert: ${title}`);
       } else if (category === 'borrel') {
         categories.borrel.push(item);
-        console.log(`✅ Added to borrel: ${title}`);
+        console.log(` Added to borrel: ${title}`);
       } else if (isDrink) {
         // Only add to dranken category and set correct subtitle
         // Check if already exists to prevent duplicates
@@ -2332,18 +2629,18 @@ function App(){
         if (!alreadyExists) {
           const drinkItem = { ...item, subtitle: 'Drank' };
           categories.dranken.push(drinkItem);
-          console.log(`✅ Added to dranken: ${title} (section: ${section}) with subtitle: Drank`);
+          console.log(` Added to dranken: ${title} (section: ${section}) with subtitle: Drank`);
         } else {
-          console.log(`⚠️ Skipped duplicate drink: ${title} (id: ${item.id})`);
+          console.log(` Skipped duplicate drink: ${title} (id: ${item.id})`);
         }
       } else {
         // Fallback to diner
         categories.diner.push(item);
-        console.log(`⚠️ Fallback to diner: ${title} (category: ${category})`);
+        console.log(` Fallback to diner: ${title} (category: ${category})`);
       }
     });
     
-    console.log('📊 Final categories:', {
+    console.log('� Final categories:', {
       ontbijt: categories.ontbijt.length,
       lunch: categories.lunch.length,
       voorgerecht: categories.voorgerecht.length,
@@ -2361,8 +2658,8 @@ function App(){
     if (!menuCategories.dranken?.length) return [];
     
     const sections = [...new Set(menuCategories.dranken.map(item => item.section).filter(Boolean))];
-    console.log('🍷 Drinks subcategories found:', sections);
-    console.log('🍷 All dranken items with sections:', menuCategories.dranken.map(item => ({ 
+    console.log('� Drinks subcategories found:', sections);
+    console.log('� All dranken items with sections:', menuCategories.dranken.map(item => ({ 
       title: item.title, 
       section: item.section,
       category: item.category,
@@ -2373,8 +2670,8 @@ function App(){
     const casaSilva = menuCategories.dranken.find(item => item.title.toLowerCase().includes('casa silva'));
     const pucari = menuCategories.dranken.find(item => item.title.toLowerCase().includes('pucari'));
     
-    if (casaSilva) console.log('🔍 Casa Silva found:', casaSilva);
-    if (pucari) console.log('🔍 Pucari found:', pucari);
+    if (casaSilva) console.log(' Casa Silva found:', casaSilva);
+    if (pucari) console.log(' Pucari found:', pucari);
     
     return sections;
   }, [menuCategories.dranken]);
@@ -2397,7 +2694,7 @@ function App(){
     // Get the correct pairing name based on language
     const pairingName = lang === 'en' ? (pairing.name_en || pairing.name) : pairing.name;
     
-    console.log('🍷 generatePairingText called:', {
+    console.log('� generatePairingText called:', {
       lang,
       pairingName,
       name: pairing.name,
@@ -2408,15 +2705,15 @@ function App(){
     
     // PRIORITEIT 1: Use description from Google Sheets if available
     if (lang === 'en' && pairing.description_en) {
-      console.log('✅ Using English description from Sheets for:', pairingName);
+      console.log(' Using English description from Sheets for:', pairingName);
       return pairing.description_en;
     } else if (lang === 'nl' && pairing.description) {
-      console.log('✅ Using Dutch description from Sheets for:', pairingName);
+      console.log(' Using Dutch description from Sheets for:', pairingName);
       return pairing.description;
     }
     
     // PRIORITEIT 2: Generate with OpenAI API if Sheets description is not available
-    console.log('🤖 Generating AI description for pairing:', pairingName);
+    console.log(' Generating AI description for pairing:', pairingName);
     
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -2449,28 +2746,28 @@ function App(){
       if (response.ok) {
         const data = await response.json();
         const aiDescription = data.choices[0].message.content.trim();
-        console.log('✅ AI generated description:', aiDescription);
+        console.log(' AI generated description:', aiDescription);
         return aiDescription;
       } else {
-        console.error('❌ API request failed with status:', response.status);
+        console.error(' API request failed with status:', response.status);
         throw new Error('API request failed');
       }
     } catch (error) {
-      console.error('❌ Error generating AI description:', error);
+      console.error(' Error generating AI description:', error);
       // FALLBACK: Simple generic text
       return lang === 'en'
         ? `Perfect pairing with ${pairingName} - enhances the flavors beautifully.`
-        : `Prachtige match met ${pairingName} — versterkt de smaken zonder te overheersen.`;
+         : `Prachtige match met ${pairingName} — versterkt de smaken zonder te overheersen.`;
     }
   };
 
   // Generate pairings for a dish - prioritize Google Sheets pairings
   const handleShowPairing = async (pairing) => {
-    console.log('🍷 Showing pairing:', pairing);
+    console.log('� Showing pairing:', pairing);
     if (pairing && pairing.name) {
       // Generate pairing text first (async)
       const pairingText = await generatePairingText(pairing, lang);
-      showToast(`${pairing.name} - €${pairing.price.toFixed(2)}`);
+       showToast(`${pairing.name} - €${pairing.price.toFixed(2)}`);
       
       // Show pairing card with generated text
       setShowPairingCard(true);
@@ -2481,12 +2778,12 @@ function App(){
   };
 
   const generatePairingsForDish = async (dish) => {
-    console.log('🚀 generatePairingsForDish START for dish:', dish.name, 'ID:', dish.id);
-    console.log('🚀 Current pairingData length:', pairingData.length);
+    console.log(' generatePairingsForDish START for dish:', dish.name, 'ID:', dish.id);
+    console.log(' Current pairingData length:', pairingData.length);
     
     const cacheKey = `${dish.id}_${dish.name}_${user.taste}_${lang}`;
     
-    console.log('🎯 generatePairingsForDish called:', {
+    console.log(' generatePairingsForDish called:', {
       dish: dish.name,
       dishId: dish.id,
       userTaste: user.taste,
@@ -2497,18 +2794,18 @@ function App(){
     
     // Check cache first
     if (dishPairings[cacheKey]) {
-      console.log('📦 Using cached pairings for', dish.name);
+      console.log('� Using cached pairings for', dish.name);
       return dishPairings[cacheKey];
     }
     
     // ALWAYS prioritize Google Sheets pairings first
     const allSheetsPairings = pairingData.filter(p => p.dish_id === dish.id && p.active);
-    console.log('📋 All Google Sheets pairings for', dish.name, ':', allSheetsPairings.length);
+    console.log('� All Google Sheets pairings for', dish.name, ':', allSheetsPairings.length);
     
     if (allSheetsPairings.length > 0) {
       // Get user taste code for matching
       const userTasteCode = tasteToCode(user.taste);
-      console.log('🎯 User taste code:', userTasteCode, 'from taste:', user.taste);
+      console.log(' User taste code:', userTasteCode, 'from taste:', user.taste);
       
       // Score pairings based on match_tags
       const scoredPairings = allSheetsPairings.map(p => {
@@ -2516,7 +2813,7 @@ function App(){
         
         // Check if match_tags includes user taste
         if (p.match_tags && p.match_tags.length > 0) {
-          console.log('🏷️ Pairing tags for', p.suggestion, ':', p.match_tags);
+          console.log('� Pairing tags for', p.suggestion, ':', p.match_tags);
           
           // Flexible matching - check for partial matches too
           const tagsLower = p.match_tags.map(tag => tag.toLowerCase().trim());
@@ -2524,25 +2821,25 @@ function App(){
           // Exact match first
           if (tagsLower.includes(userTasteCode)) {
             score += 10;
-            console.log('✅ EXACT TASTE MATCH for', p.suggestion);
+            console.log(' EXACT TASTE MATCH for', p.suggestion);
           }
           // Partial matches for common variations
           else if (userTasteCode === 'light_fresh' && (tagsLower.includes('fris') || tagsLower.includes('licht') || tagsLower.includes('light') || tagsLower.includes('fresh'))) {
             score += 10;
-            console.log('✅ PARTIAL MATCH (light_fresh) for', p.suggestion);
+            console.log(' PARTIAL MATCH (light_fresh) for', p.suggestion);
           }
           else if (userTasteCode === 'rich_hearty' && (tagsLower.includes('rijk') || tagsLower.includes('hartig') || tagsLower.includes('rich') || tagsLower.includes('hearty'))) {
             score += 10;
-            console.log('✅ PARTIAL MATCH (rich_hearty) for', p.suggestion);
+            console.log(' PARTIAL MATCH (rich_hearty) for', p.suggestion);
           }
           else if (userTasteCode === 'surprising_full' && (tagsLower.includes('verrassend') || tagsLower.includes('vol') || tagsLower.includes('surprising') || tagsLower.includes('full'))) {
             score += 10;
-            console.log('✅ PARTIAL MATCH (surprising_full) for', p.suggestion);
+            console.log(' PARTIAL MATCH (surprising_full) for', p.suggestion);
           }
           // General matches
           else if (tagsLower.includes('all') || tagsLower.includes('*')) {
             score += 1;
-            console.log('✅ GENERAL MATCH (all) for', p.suggestion);
+            console.log(' GENERAL MATCH (all) for', p.suggestion);
           }
         } else {
           // No tags means it's for everyone
@@ -2557,11 +2854,11 @@ function App(){
       
       // Sort by score (highest first)
       const sortedPairings = scoredPairings.sort((a, b) => b.score - a.score);
-      console.log('🎯 Sorted pairings for', dish.name, ':', sortedPairings.map(p => ({ suggestion: p.suggestion, score: p.score, tags: p.match_tags })));
+      console.log(' Sorted pairings for', dish.name, ':', sortedPairings.map(p => ({ suggestion: p.suggestion, score: p.score, tags: p.match_tags })));
       
       // Return top pairing(s)
       const selectedPairings = sortedPairings.slice(0, 3); // Max 3 pairings
-      console.log('✅ Using Google Sheets pairings for', dish.name, ':', selectedPairings.length);
+      console.log(' Using Google Sheets pairings for', dish.name, ':', selectedPairings.length);
       
       // Cache the result
       setDishPairings(prev => ({ ...prev, [cacheKey]: selectedPairings }));
@@ -2569,10 +2866,10 @@ function App(){
     }
     
     // Only generate AI pairings if no Google Sheets pairings exist
-    console.log('🤖 No Google Sheets pairings found, generating AI pairings for', dish.name);
+    console.log(' No Google Sheets pairings found, generating AI pairings for', dish.name);
     try {
       const aiPairings = await generateAIPairings(dish, user, lang, pairingData);
-      console.log('🤖 AI pairings for', dish.name, ':', aiPairings);
+      console.log(' AI pairings for', dish.name, ':', aiPairings);
       
       // Cache the result
       setDishPairings(prev => ({ ...prev, [cacheKey]: aiPairings }));
@@ -2584,12 +2881,12 @@ function App(){
     }
   };
 
-
   return (
     <div className="min-h-[100dvh] bg-[#F3E8D2] text-amber-950 selection:bg-amber-700/20 relative" role="application" aria-label="AI Menu App">
       {/* Intro */}
       {step===0 && (
         <main className="max-w-screen-sm mx-auto px-4 py-4 text-center relative">
+          
           {/* Language switch in top-right */}
           <LangSwitchInline lang={lang} onChange={handleLangChange} className="absolute top-4 right-4" />
           
@@ -2597,14 +2894,16 @@ function App(){
           
           {/* Welcome Section - boven de foto */}
           <div className="mt-6 mb-4">
-            <h1 className="text-4xl sm:text-5xl font-serif font-medium text-amber-900 mb-6">
+            <h1 className="text-4xl sm:text-5xl font-serif font-medium text-red-700 mb-6">
               {t.intro}
             </h1>
           </div>
           
           <div className="mt-8"><RotatingQuote large lang={lang} /></div>
-          <div className="mt-0" style={{paddingTop: '1rem', paddingBottom: '1rem', marginBottom: '3rem'}}><Button onClick={()=>setStep(1)}>{t.seeMenu}</Button></div>
-          <FixedFooter />
+          <div className="mt-0" style={{paddingTop: '1rem', paddingBottom: '1rem', marginBottom: '3rem'}}>
+            <Button onClick={()=>setStep(1)}>{t.seeMenu}</Button>
+          </div>
+          <FixedFooter lang={lang} />
         </main>
       )}
 
@@ -2630,7 +2929,7 @@ function App(){
               <NameStep lang={lang} value={user.name} onChange={(name)=>setUser({...user, name})} />
             </StepCard>
           )}
-          <FixedFooter />
+          <FixedFooter lang={lang} />
         </main>
       )}
 
@@ -2639,12 +2938,14 @@ function App(){
       {step===4 && (
         <main className="max-w-screen-sm mx-auto px-4 py-4 pb-40">
           {console.log('Rendering step 4 - Menu')}
+          
           <Hero>
+            
             {/* Language switch in hero top-right */}
             <LangSwitchInline 
               lang={lang} 
               onChange={(newLang) => {
-                console.log('Language switch clicked:', lang, '→', newLang);
+                console.log('Language switch clicked:', lang, '�', newLang);
                 setLang(newLang);
                 // Clear caches for stability
                 setDishPairings({});
@@ -2915,14 +3216,14 @@ function App(){
                     const filtered = menuCategories.dranken.filter(item => {
                       const matches = item.section === selectedDrinksSubcategory;
                       if (!matches) {
-                        console.log(`❌ ${item.title} does NOT match filter "${selectedDrinksSubcategory}" (section: "${item.section}")`);
+                        console.log(` ${item.title} does NOT match filter "${selectedDrinksSubcategory}" (section: "${item.section}")`);
                       } else {
-                        console.log(`✅ ${item.title} matches filter "${selectedDrinksSubcategory}"`);
+                        console.log(` ${item.title} matches filter "${selectedDrinksSubcategory}"`);
                       }
                       return matches;
                     });
                     
-                    console.log(`🍷 Filter "${selectedDrinksSubcategory}" result:`, filtered.map(item => item.title));
+                    console.log(`� Filter "${selectedDrinksSubcategory}" result:`, filtered.map(item => item.title));
                     return filtered;
                   })().map(item => {
                     // Transform menu item to dish format with correct type
@@ -2958,7 +3259,7 @@ function App(){
                 if (el) {
                   el.scrollIntoView({behavior:'smooth', block:'start'}); 
                 } else {
-                  console.log('❌ Volledige kaart section not found');
+                  console.log(' Volledige kaart section not found');
                 }
               }}
             >{lang==='nl' ? 'Bekijk het hele menu' : 'View full menu'}</button>
@@ -2967,20 +3268,43 @@ function App(){
           {/* footer on menu page (non-fixed) */}
           <div className="max-w-screen-sm mx-auto px-4 mt-4 pb-8">
             <div className="w-full border-t border-amber-900/20" />
-            <div className="pt-2"><FooterBlock /></div>
+            <div className="pt-2"><FooterBlock lang={lang} /></div>
           </div>
         </main>
       )}
 
       <ToastBar open={toast.open} text={toast.text} onClose={()=>setToast({open:false, text:''})} />
       
-      {/* Smart Bubble Upsell */}
+      {/* WhatsApp Opt-in Subtle Slider */}
+      <WhatsAppOptInPopup 
+        isVisible={showOptInModal}
+        onClose={() => setShowOptInModal(false)}
+        onSubmit={submitOptInData}
+        data={optInData}
+        setData={setOptInData}
+        isSubmitting={isSubmittingOptIn}
+        lang={lang}
+      />
+      
+      {/* Smart Bubble */}
       {smartBubble && (
-        <SmartBubble 
+        <SmartBubble
           message={smartBubble.message}
-          position={smartBubble.position}
           onClose={() => setSmartBubble(null)}
+          position={smartBubble.position}
         />
+      )}
+      
+      {/* Floating WhatsApp button - rechtsonderin na 20s */}
+      {showOptInFloating && (
+        <button
+          onClick={() => { console.log(' Floating WhatsApp button clicked'); setShowOptInModal(true); }}
+          className="fixed bottom-24 right-6 sm:bottom-6 w-14 h-14 bg-green-600 text-white rounded-full shadow-lg border border-green-500/30 hover:bg-green-700 transition-all duration-200 z-[999] flex items-center justify-center"
+        >
+          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/>
+          </svg>
+        </button>
       )}
     </div>
   );
@@ -2988,7 +3312,7 @@ function App(){
 
 // Component that handles pairing generation
 function DishCardWithPairings({ venue, dish, onShowPairing, lang, generatePairingsForDish, generatePairingText, setCurrentPairing, setShowPairingCard, showPairingCard, weather, weatherCategory, preloadedTranslations }) {
-  console.log('🎨 DishCardWithPairings RENDER for dish:', dish.name, 'ID:', dish.id, 'lang:', lang, 'full dish object:', dish);
+  console.log(' DishCardWithPairings RENDER for dish:', dish.name, 'ID:', dish.id, 'lang:', lang, 'full dish object:', dish);
   const [pairings, setPairings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pairingTranslations, setPairingTranslations] = useState({});
@@ -2997,14 +3321,14 @@ function DishCardWithPairings({ venue, dish, onShowPairing, lang, generatePairin
     const loadPairings = async () => {
       setLoading(true);
       try {
-        console.log('🔄 Loading pairings for dish:', dish.name, 'ID:', dish.id);
-        console.log('🔄 About to call generatePairingsForDish...');
+        console.log(' Loading pairings for dish:', dish.name, 'ID:', dish.id);
+        console.log(' About to call generatePairingsForDish...');
         const dishPairings = await generatePairingsForDish(dish);
-        console.log('✅ Loaded pairings for', dish.name, ':', dishPairings);
+        console.log(' Loaded pairings for', dish.name, ':', dishPairings);
         setPairings(dishPairings);
       } catch (error) {
-        console.error('❌ Failed to load pairings for', dish.name, error);
-        console.error('❌ Error details:', error);
+        console.error(' Failed to load pairings for', dish.name, error);
+        console.error(' Error details:', error);
         setPairings([]);
       }
       setLoading(false);
@@ -3015,11 +3339,11 @@ function DishCardWithPairings({ venue, dish, onShowPairing, lang, generatePairin
   
   // Load AI translations for pairings if needed
   useEffect(() => {
-    console.log(`🔄 Pairing translation useEffect triggered - lang: ${lang}, pairings: ${pairings?.length || 0}`);
+    console.log(` Pairing translation useEffect triggered - lang: ${lang}, pairings: ${pairings?.length || 0}`);
     
     const loadPairingTranslations = async () => {
       if (lang !== 'en' || !pairings || pairings.length === 0) {
-        console.log(`⏭️ Skipping pairing translations - lang: ${lang}, pairings: ${pairings?.length || 0}`);
+        console.log(`� Skipping pairing translations - lang: ${lang}, pairings: ${pairings?.length || 0}`);
         setPairingTranslations({});
         return;
       }
@@ -3028,7 +3352,7 @@ function DishCardWithPairings({ venue, dish, onShowPairing, lang, generatePairin
       let needsTranslation = false;
       
       for (const pairing of pairings) {
-        console.log(`🔍 Checking pairing: "${pairing.suggestion}" (suggestion_en: "${pairing.suggestion_en}")`);
+        console.log(` Checking pairing: "${pairing.suggestion}" (suggestion_en: "${pairing.suggestion_en}")`);
         
         // Check if we need AI translation for this pairing
         // Only translate if suggestion_en (kolom I) is empty
@@ -3036,7 +3360,7 @@ function DishCardWithPairings({ venue, dish, onShowPairing, lang, generatePairin
         
         if (isEmpty) {
           needsTranslation = true;
-          console.log(`🤖 Need AI translation for: "${pairing.suggestion}" (suggestion_en is empty)`);
+          console.log(` Need AI translation for: "${pairing.suggestion}" (suggestion_en is empty)`);
           
           // Check preloaded translations first
           const preloadedKey = `pairing_${pairing.suggestion}`;
@@ -3060,10 +3384,10 @@ function DishCardWithPairings({ venue, dish, onShowPairing, lang, generatePairin
       }
       
       if (needsTranslation) {
-        console.log(`✅ Setting pairing translations:`, translations);
+        console.log(` Setting pairing translations:`, translations);
         setPairingTranslations(translations);
       } else {
-        console.log(`⏭️ No pairing translations needed`);
+        console.log(`� No pairing translations needed`);
       }
     };
     
@@ -3071,7 +3395,7 @@ function DishCardWithPairings({ venue, dish, onShowPairing, lang, generatePairin
   }, [lang, pairings, preloadedTranslations]);
   
   const pairingsToPass = loading ? [] : pairings;
-  console.log('🔄 DishCardWithPairings passing pairings:', {
+  console.log(' DishCardWithPairings passing pairings:', { 
     dish: dish.name,
     loading,
     pairingsLength: pairings.length,
@@ -3080,7 +3404,7 @@ function DishCardWithPairings({ venue, dish, onShowPairing, lang, generatePairin
   });
   
   try {
-    console.log('🔄 DishCardWithPairings about to render DishCard for:', dish.name);
+    console.log(' DishCardWithPairings about to render DishCard for:', dish.name);
   return (
     <DishCard 
       venue={venue} 
@@ -3099,9 +3423,65 @@ function DishCardWithPairings({ venue, dish, onShowPairing, lang, generatePairin
            />
          );
   } catch (error) {
-    console.error('❌ Error in DishCardWithPairings rendering DishCard for', dish.name, error);
+    console.error(' Error in DishCardWithPairings rendering DishCard for', dish.name, error);
     return <div>Error rendering {dish.name}</div>;
   }
 }
+
+// WhatsApp Opt-in Modal Component - Simple slider
+const OptInModal = ({ isVisible, onClose, lang }) => {
+  console.log(' OptInModal render - isVisible:', isVisible);
+  if (!isVisible) return null;
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-4" style={{paddingBottom: 'max(16px, env(safe-area-inset-bottom))'}}>
+      {/* Simple slider */}
+      <div className="bg-amber-900/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-amber-700/20 max-w-md mx-auto">
+        <div className="p-4">
+          {/* Close button */}
+          <button
+            onClick={onClose}
+            className="absolute top-3 right-3 w-6 h-6 text-amber-200 hover:text-white transition-colors flex items-center justify-center text-lg font-bold"
+          >
+            ×
+          </button>
+          
+          {/* Header */}
+          <div className="mb-3 pr-8">
+            <h3 className="text-base font-bold text-amber-50 mb-1">
+              {lang === 'nl' ? 'Blijf op de hoogte!' : 'Stay updated!'}
+            </h3>
+            <p className="text-amber-200 text-xs">
+              {lang === 'nl' 
+                ? 'WhatsApp updates van \'t Tolhuis' 
+                : 'WhatsApp updates from \'t Tolhuis'
+              }
+            </p>
+          </div>
+          
+          {/* Simple buttons */}
+          <div className="space-y-2">
+            <button
+              onClick={() => {
+                console.log(' User clicked subscribe');
+                onClose();
+              }}
+              className="w-full bg-green-600 text-white py-2 px-3 rounded-lg font-medium hover:bg-green-700 transition-colors text-sm"
+            >
+              {lang === 'nl' ? 'Aanmelden' : 'Subscribe'}
+            </button>
+            
+            <button
+              onClick={onClose}
+              className="w-full text-amber-300 hover:text-white text-xs transition-colors"
+            >
+              {lang === 'nl' ? 'Nee, bedankt' : 'No, thanks'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default App;

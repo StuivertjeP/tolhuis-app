@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Build output
+/dist/
+/build/
+
+# Environment
+.env
+.env.*
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Coverage / testing
+coverage/
+.jest-cache/
+.jest/
+
+# Misc
+*.local
+*.tmp
+*.temp
+
+# Docker/PM2
+*.pid
+
+

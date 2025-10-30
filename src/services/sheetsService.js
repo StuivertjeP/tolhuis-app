@@ -135,7 +135,7 @@ function mapSheetRowToPairing(row, index) {
   return {
     dish_id: dish_id,
     venue: venue || 'tolhuis',
-    suggestion: suggestion, // Button tekst (NL) - bijv. "Glas Merlot + €5,95"
+    suggestion: suggestion, // Button tekst (NL) - bijv. "Glas Merlot + ��5,95"
     suggestion_en: suggestion_en || suggestion, // Button tekst (EN) - fallback naar NL
     description: description || '', // Toaster tekst (NL) - laat leeg voor AI generation
     description_en: description_en || '', // Toaster tekst (EN) - laat leeg voor AI generation
@@ -153,25 +153,25 @@ function mapSheetRowToPairing(row, index) {
  * Haalt menu data op uit Google Sheets
  */
 async function getMenuData(forceRefresh = false) {
-  console.log('🍽️ getMenuData function called - fetching from Google Sheets');
+  console.log(' getMenuData function called - fetching from Google Sheets');
   
   if (!forceRefresh && menuCache.data && menuCache.timestamp) {
     const now = Date.now();
     if (now - menuCache.timestamp < menuCache.ttl) {
-      console.log('🍽️ Using cached menu data:', menuCache.data.length, 'items');
+      console.log(' Using cached menu data:', menuCache.data.length, 'items');
       return menuCache.data;
     }
   }
 
   try {
     const rows = await fetchSheetData(SHEETS_CONFIG.sheets.menu);
-    console.log('🍽️ RAW MENU ROWS from Sheets:', rows.slice(0, 3)); // Debug: show first 3 rows
+    console.log(' RAW MENU ROWS from Sheets:', rows.slice(0, 3)); // Debug: show first 3 rows
     
     const menuItems = rows
       .map((row, index) => {
         const mapped = mapSheetRowToMenuItem(row, index);
         if (mapped && index < 5) {
-          console.log(`🍽️ Mapped menu item ${index}:`, {
+          console.log(` Mapped menu item ${index}:`, {
             title: mapped.title,
             active: mapped.active,
             is_week: mapped.is_week,
@@ -183,15 +183,15 @@ async function getMenuData(forceRefresh = false) {
       })
       .filter(item => {
         if (item) {
-          console.log(`🍽️ Filtering item: ${item.title} - active: ${item.active}`);
+          console.log(` Filtering item: ${item.title} - active: ${item.active}`);
         }
         return item && item.active;
       });
     
     menuCache.data = menuItems;
     menuCache.timestamp = Date.now();
-    console.log('🍽️ Updated menu cache with Sheets data:', menuItems.length, 'items');
-    console.log('🍽️ First menu item:', menuItems[0]);
+    console.log(' Updated menu cache with Sheets data:', menuItems.length, 'items');
+    console.log(' First menu item:', menuItems[0]);
     return menuItems;
   } catch (error) {
     console.error('Error fetching menu data:', error);
@@ -203,7 +203,7 @@ async function getMenuData(forceRefresh = false) {
  * Haalt weekmenu data op uit Google Sheets
  */
 async function getWeekmenuData() {
-  console.log('📊 getWeekmenuData function called - fetching from Google Sheets');
+  console.log('� getWeekmenuData function called - fetching from Google Sheets');
   
   if (weekmenuCache.data && weekmenuCache.timestamp) {
     const now = Date.now();
@@ -214,13 +214,13 @@ async function getWeekmenuData() {
 
   try {
     const rows = await fetchSheetData(SHEETS_CONFIG.sheets.weekmenu);
-    console.log('📊 RAW WEEKMENU ROWS from Sheets:', rows.slice(0, 3)); // Debug: show first 3 rows
+    console.log('� RAW WEEKMENU ROWS from Sheets:', rows.slice(0, 3)); // Debug: show first 3 rows
     
     const weekmenuItems = rows
       .map((row, index) => {
         const mapped = mapSheetRowToMenuItem(row, index);
         if (mapped && index < 5) {
-          console.log(`📊 Mapped weekmenu item ${index}:`, {
+          console.log(`� Mapped weekmenu item ${index}:`, {
             title: mapped.title,
             title_en: mapped.title_en,
             description: mapped.description?.substring(0, 50),
@@ -233,8 +233,8 @@ async function getWeekmenuData() {
     
       weekmenuCache.data = weekmenuItems;
       weekmenuCache.timestamp = Date.now();
-    console.log('📊 Updated weekmenu cache with Sheets data:', weekmenuItems.length, 'items');
-    console.log('📊 First weekmenu item with translations:', weekmenuItems[0]);
+    console.log('� Updated weekmenu cache with Sheets data:', weekmenuItems.length, 'items');
+    console.log('� First weekmenu item with translations:', weekmenuItems[0]);
       return weekmenuItems;
   } catch (error) {
     console.error('Error fetching weekmenu data:', error);
@@ -246,27 +246,27 @@ async function getWeekmenuData() {
  * Haalt pairing data op uit Google Sheets
  */
 async function getPairingData(forceRefresh = false) {
-  console.log('🚨🚨🚨 getPairingData function called - fetching from Google Sheets');
+  console.log(' getPairingData function called - fetching from Google Sheets');
   
   if (!forceRefresh && pairingCache.data && pairingCache.timestamp) {
     const now = Date.now();
     if (now - pairingCache.timestamp < pairingCache.ttl) {
-      console.log('🍷 Using cached pairing data:', pairingCache.data.length, 'items');
+      console.log('� Using cached pairing data:', pairingCache.data.length, 'items');
       return pairingCache.data;
     }
   }
 
   try {
-    console.log('🚨🚨🚨 Fetching pairings from sheet:', SHEETS_CONFIG.sheets.pairings);
+    console.log(' Fetching pairings from sheet:', SHEETS_CONFIG.sheets.pairings);
     const rows = await fetchSheetData(SHEETS_CONFIG.sheets.pairings);
-    console.log('🚨🚨🚨 RAW PAIRING ROWS from Sheets:', rows.length, 'rows');
-    console.log('🍷 First 3 rows:', rows.slice(0, 3)); // Debug: show first 3 rows
+    console.log(' RAW PAIRING ROWS from Sheets:', rows.length, 'rows');
+    console.log('� First 3 rows:', rows.slice(0, 3)); // Debug: show first 3 rows
     
     const pairingItems = rows
       .map((row, index) => {
         const mapped = mapSheetRowToPairing(row, index);
         if (mapped && index < 5) {
-          console.log(`🍷 Mapped pairing ${index}:`, {
+          console.log(`� Mapped pairing ${index}:`, {
             suggestion: mapped.suggestion,
             suggestion_en: mapped.suggestion_en,
             description: mapped.description,
@@ -279,8 +279,8 @@ async function getPairingData(forceRefresh = false) {
     
     pairingCache.data = pairingItems;
     pairingCache.timestamp = Date.now();
-    console.log('🍷 Updated pairing cache with Sheets data:', pairingItems.length, 'items');
-    console.log('🍷 First pairing item with translations:', pairingItems[0]);
+    console.log('� Updated pairing cache with Sheets data:', pairingItems.length, 'items');
+    console.log('� First pairing item with translations:', pairingItems[0]);
     return pairingItems;
   } catch (error) {
     console.error('Error fetching pairing data:', error);
@@ -292,7 +292,7 @@ async function getPairingData(forceRefresh = false) {
  * Haalt periode op uit weekmenu data
  */
 async function getCurrentPeriod() {
-  console.log('📅 getCurrentPeriod function called - fetching from Google Sheets');
+  console.log(' getCurrentPeriod function called - fetching from Google Sheets');
   
   if (periodCache.data && periodCache.timestamp) {
     const now = Date.now();
@@ -305,7 +305,7 @@ async function getCurrentPeriod() {
     const weekmenuItems = await getWeekmenuData();
     if (weekmenuItems.length > 0 && weekmenuItems[0].date) {
       const dateString = weekmenuItems[0].date;
-      console.log('📅 Found date string:', dateString);
+      console.log(' Found date string:', dateString);
       
       // Parse datum uit journaal string - met haakjes
       const dateMatch = dateString.match(/\((\d{1,2})\s+(jan|feb|mrt|apr|mei|jun|jul|aug|sep|okt|nov|dec)\s+t\/m\s+(\d{1,2})\s+(jan|feb|mrt|apr|mei|jun|jul|aug|sep|okt|nov|dec)\s+(\d{4})\)/i);
@@ -315,14 +315,14 @@ async function getCurrentPeriod() {
         const period = `${startDay} ${startMonth} t/m ${endDay} ${endMonth} ${year}`;
         periodCache.data = period;
         periodCache.timestamp = Date.now();
-        console.log('📅 Parsed period from journaal:', period);
+        console.log(' Parsed period from journaal:', period);
         return period;
       } else {
         // Fallback: gebruik de hele string als periode
         const period = dateString.replace(/^'t Tolhuis Journaal No\.\d+\s*/, '');
         periodCache.data = period;
         periodCache.timestamp = Date.now();
-        console.log('📅 Using fallback period:', period);
+        console.log(' Using fallback period:', period);
         return period;
       }
     }
@@ -352,7 +352,7 @@ function getWeekNumber(date) {
  * Genereert AI pairings voor een gerecht
  */
 async function generateAIPairings(dish, user, lang = 'nl', pairingData = []) {
-  console.log('🤖 generateAIPairings for:', dish.name);
+  console.log(' generateAIPairings for:', dish.name);
   
   // Zoek matching pairings uit Sheets
   const matchingPairings = pairingData.filter(pairing => 
@@ -369,20 +369,20 @@ async function generateAIPairings(dish, user, lang = 'nl', pairingData = []) {
     
     if (isTasteMatch) {
       let price = 5.95;
-        const priceMatch = pairing.suggestion.match(/\+€?([\d,]+)/);
+        const priceMatch = pairing.suggestion.match(/\+��?([\d,]+)/);
         if (priceMatch) {
           price = parseFloat(priceMatch[1].replace(',', '.'));
         }
         
-      const nameWithoutPrice = pairing.suggestion.replace(/\s*\+€?[\d,\.]+.*$/, '');
-      const nameWithoutPrice_en = (pairing.suggestion_en || pairing.suggestion).replace(/\s*\+€?[\d,\.]+.*$/, '');
+      const nameWithoutPrice = pairing.suggestion.replace(/\s*\+��?[\d,\.]+.*$/, '');
+      const nameWithoutPrice_en = (pairing.suggestion_en || pairing.suggestion).replace(/\s*\+��?[\d,\.]+.*$/, '');
         
         pairings.push({
           dish_id: dish.id,
           kind: pairing.kind,
         name: nameWithoutPrice, // Dutch name (without price)
         name_en: nameWithoutPrice_en, // English name (without price)
-        suggestion: pairing.suggestion, // Dutch suggestion (with price, e.g. "Glas Merlot + €5,95")
+        suggestion: pairing.suggestion, // Dutch suggestion (with price, e.g. "Glas Merlot + ��5,95")
         suggestion_en: pairing.suggestion_en || pairing.suggestion, // English suggestion (with price)
           price: price,
         description: pairing.description || '', // Dutch description from Sheets
@@ -401,25 +401,25 @@ async function generateAIPairings(dish, user, lang = 'nl', pairingData = []) {
 function clearMenuCache() {
   menuCache.data = null;
   menuCache.timestamp = null;
-  console.log('🍽️ Menu cache cleared');
+  console.log(' Menu cache cleared');
 }
 
 function clearWeekmenuCache() {
   weekmenuCache.data = null;
   weekmenuCache.timestamp = null;
-  console.log('📊 Weekmenu cache cleared');
+  console.log('� Weekmenu cache cleared');
 }
 
 function clearPairingCache() {
   pairingCache.data = null;
   pairingCache.timestamp = null;
-  console.log('🍷 Pairing cache cleared');
+  console.log('� Pairing cache cleared');
 }
 
 function clearPeriodCache() {
   periodCache.data = null;
   periodCache.timestamp = null;
-  console.log('📅 Period cache cleared');
+  console.log(' Period cache cleared');
 }
 
 /**
@@ -429,7 +429,7 @@ function clearPeriodCache() {
  * Deze functie is een placeholder voor toekomstige implementatie.
  */
 async function saveAIDescriptionToSheet(dish_id, suggestion, aiDescription, lang = 'nl') {
-  console.log(`💾 [CACHE] Saving AI description for ${dish_id} (${lang}):`, aiDescription);
+  console.log(`� [CACHE] Saving AI description for ${dish_id} (${lang}):`, aiDescription);
   
   // TODO: Implementeer Google Sheets API write
   // Voor nu slaan we alleen op in memory cache
@@ -450,7 +450,7 @@ async function saveAIDescriptionToSheet(dish_id, suggestion, aiDescription, lang
     } else {
         pairingCache.data[pairingIndex].ai_description_en = aiDescription;
       }
-      console.log(`💾 [CACHE] Updated pairing cache for ${dish_id}`);
+      console.log(`� [CACHE] Updated pairing cache for ${dish_id}`);
     }
   }
   
@@ -511,13 +511,13 @@ async function getSmartBubblesData() {
     const response = await fetch(url);
     
     if (!response.ok) {
-      console.log('🎯 SmartBubbles sheet does not exist yet, returning empty array');
+      console.log(' SmartBubbles sheet does not exist yet, returning empty array');
       return [];
     }
     
     // Parse CSV data
     const csvText = await response.text();
-    console.log('🎯 SmartBubbles raw CSV:', csvText.substring(0, 200));
+    console.log(' SmartBubbles raw CSV:', csvText.substring(0, 200));
     
     const rows = csvText.split('\n').map(row => {
       // Simple CSV parser (handles quoted values)
@@ -532,7 +532,7 @@ async function getSmartBubblesData() {
         } else if (char === ',' && !inQuotes) {
           values.push(current.trim());
           current = '';
-        } else {
+    } else {
           current += char;
         }
       }
@@ -540,12 +540,12 @@ async function getSmartBubblesData() {
       return values;
     }).filter(row => row.some(cell => cell && cell !== ''));
     
-    console.log('🎯 SmartBubbles parsed rows:', rows.length);
-    console.log('🎯 SmartBubbles header row:', rows[0]);
-    console.log('🎯 SmartBubbles data rows:', rows.slice(1));
+    console.log(' SmartBubbles parsed rows:', rows.length);
+    console.log(' SmartBubbles header row:', rows[0]);
+    console.log(' SmartBubbles data rows:', rows.slice(1));
     
     if (rows.length <= 1) {
-      console.log('🎯 No SmartBubbles data found (only header or empty)');
+      console.log(' No SmartBubbles data found (only header or empty)');
       return [];
     }
     
@@ -555,8 +555,8 @@ async function getSmartBubblesData() {
       const [offer_id, venue, dish_name, price, category, taste_match, weather_match, time_match, season_match, active] = row;
       
       if (!offer_id || !dish_name) return null;
-      
-      return {
+    
+    return {
         offer_id,
         venue: venue || 'tolhuis',
         dish_name,
@@ -571,13 +571,115 @@ async function getSmartBubblesData() {
       };
     }).filter(Boolean);
     
-    console.log('🎯 SmartBubbles processed:', smartBubbles.length, 'items');
-    console.log('🎯 SmartBubbles items:', smartBubbles.map(item => `${item.dish_name} (${item.active ? 'active' : 'inactive'})`));
+    console.log(' SmartBubbles processed:', smartBubbles.length, 'items');
+    console.log(' SmartBubbles items:', smartBubbles.map(item => `${item.dish_name} (${item.active ? 'active' : 'inactive'})`));
     return smartBubbles;
     
-    } catch (error) {
-    console.error('❌ Error fetching SmartBubbles data:', error);
+  } catch (error) {
+    console.error(' Error fetching SmartBubbles data:', error);
     return [];
+  }
+}
+
+// Function to save opt-in data to external database
+async function saveOptInData(optInData) {
+  try {
+    console.log(' Saving opt-in data to database:', optInData);
+    
+    const optInRecord = {
+      name: optInData.name.trim(),
+      phone: optInData.phone.trim(),
+      timestamp: new Date().toISOString(),
+      user_agent: navigator.userAgent,
+      venue: 'tolhuis',
+      language: optInData.lang || 'nl',
+      user_taste: optInData.user_taste || 'unknown',
+      user_diet: optInData.user_diet || 'unknown',
+      active: true
+    };
+    
+    // Use your existing SlimmeGast Apps Script API
+    try {
+      // Get your existing Apps Script API URL
+      // This should be the same URL you use for your SlimmeGast webapp
+      const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/YOUR_SLIMMEGAST_SCRIPT_ID/exec';
+      
+      const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+          type: 'optin',
+          ...optInRecord
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log(' Opt-in data saved to SlimmeGast spreadsheet:', result);
+      } else {
+        throw new Error(`SlimmeGast API request failed: ${response.status}`);
+      }
+      
+    } catch (apiError) {
+      console.warn(' SlimmeGast API not ready for opt-in data, using Google Form fallback:', apiError);
+      
+      // Fallback to Google Form
+      try {
+        const GOOGLE_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSdPeWKTwOLF93UsxuFLlVm6uT35Ot9AqmXNASmKuxMhD9lhHw/formResponse';
+        
+        // Google Form field IDs - ECHTE IDs UIT JE FORM (logische volgorde)
+        const FIELD_IDS = {
+          name: 'entry.691302498',        // 1e veld - Naam
+          phone: 'entry.772321695',      // 2e veld - Telefoonnummer
+          timestamp: 'entry.1583448926', // 3e veld - Timestamp
+          language: 'entry.152588836',   // 4e veld - Taal
+          taste: 'entry.802344911',      // 5e veld - Smaak voorkeur
+          diet: 'entry.118522528'        // 6e veld - Dieet voorkeur
+        };
+        
+        console.log(' Using field IDs:', FIELD_IDS);
+        
+        const formData = new FormData();
+        formData.append(FIELD_IDS.name, optInRecord.name);
+        formData.append(FIELD_IDS.phone, optInRecord.phone);
+        formData.append(FIELD_IDS.timestamp, optInRecord.timestamp);
+        formData.append(FIELD_IDS.language, optInRecord.language);
+        formData.append(FIELD_IDS.taste, optInRecord.user_taste);
+        formData.append(FIELD_IDS.diet, optInRecord.user_diet);
+        
+        const formResponse = await fetch(GOOGLE_FORM_URL, {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (formResponse.ok) {
+          console.log(' Opt-in data sent to Google Form successfully');
+        } else {
+          throw new Error(`Google Form failed: ${formResponse.status}`);
+        }
+        
+      } catch (formError) {
+        console.warn(' Google Form also failed, using localStorage backup:', formError);
+      }
+    }
+    
+    // Always store in localStorage as backup
+    const existingOptIns = JSON.parse(localStorage.getItem('tolhuis-optins') || '[]');
+    existingOptIns.push(optInRecord);
+    localStorage.setItem('tolhuis-optins', JSON.stringify(existingOptIns));
+    
+    // Mark as opted in
+    localStorage.setItem('tolhuis-optin', 'true');
+    
+    console.log(' Opt-in data saved successfully');
+    
+    return { success: true, message: 'Opt-in data saved successfully' };
+    
+    } catch (error) {
+    console.error(' Error saving opt-in data:', error);
+    return { success: false, message: 'Failed to save opt-in data' };
   }
 }
 
@@ -595,5 +697,6 @@ module.exports = {
   testSheetsConnection,
   testOpenAIConnection,
   getAllSheetsData,
-  getSmartBubblesData
+  getSmartBubblesData,
+  saveOptInData
 };
