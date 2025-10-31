@@ -45,5 +45,21 @@ jobs:
             fi
             npm ci
             npm run build
+            
+            # Install PM2 globally if not installed
+            if ! command -v pm2 &> /dev/null; then
+              echo "📦 Installing PM2..."
+              npm install -g pm2
+            fi
+            
+            # Stop existing server if running
+            pm2 stop tolhuis-api 2>/dev/null || true
+            pm2 delete tolhuis-api 2>/dev/null || true
+            
+            # Start API proxy server
+            pm2 start server.js --name tolhuis-api --restart unless-stopped
+            pm2 save
+            
             echo "✅ Deployment complete! Site should be available at: https://tolhuis.slimmegast.ai"
+            echo "✅ API proxy server running on port 3001"
 
