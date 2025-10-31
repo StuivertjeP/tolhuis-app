@@ -38,6 +38,11 @@ jobs:
           port: ${{ secrets.DEPLOY_PORT || 22 }}
           script: |
             cd /var/www/tolhuis-app
+            # Ensure .env exists (should be created manually on server)
+            if [ ! -f .env ]; then
+              echo "⚠️ Warning: .env file not found on server. Creating from example..."
+              cp .env.example .env || echo "⚠️ .env.example also not found"
+            fi
             npm ci
             npm run build
             echo "✅ Deployment complete! Site should be available at: https://tolhuis.slimmegast.ai"
