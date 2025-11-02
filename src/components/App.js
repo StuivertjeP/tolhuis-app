@@ -159,6 +159,35 @@ function RotatingQuote({ large = false, lang = 'nl' }){
   );
 }
 
+// White version for video background intro
+function RotatingQuoteWhite({ large = false, lang = 'nl' }){
+  const [q, setQ] = useState(quotes[lang][0]);
+  useEffect(()=>{
+    const pick = () => {
+      const langQuotes = quotes[lang] || quotes.nl;
+      try {
+        if (typeof window !== 'undefined' && typeof localStorage !== 'undefined'){
+          const key='quoteIndex';
+          const raw = localStorage.getItem(key);
+          const idx = raw==null ? 0 : (parseInt(raw,10)||0);
+          const next=(idx+1)%langQuotes.length;
+          localStorage.setItem(key,String(next));
+          return langQuotes[idx%langQuotes.length];
+        }
+      } catch {}
+      const d=new Date();
+      const seed=d.getFullYear()*1000+(d.getMonth()+1)*50+d.getDate();
+      return langQuotes[seed%langQuotes.length];
+    };
+    setQ(pick());
+  },[lang]);
+  return (
+    <div className={`transition-opacity duration-500 ${large ? 'min-h-[120px]' : 'min-h-[84px]'}`}>
+      <p className={`font-[ui-serif] text-white ${large ? 'text-2xl sm:text-[28px] leading-9' : 'text-xl leading-relaxed'} mx-auto max-w-[28ch]`}>&ldquo;{q.text}&rdquo;</p>
+    </div>
+  );
+}
+
 /********************
  * Cards
  ********************/
@@ -816,21 +845,42 @@ function MenuFilters({ filters, onFilterChange, lang }){
 /********************
  * Footer & Toast
  ********************/
-function FooterBlock({ lang }){
+function FooterBlock({ lang, onLinkClick, textColor = 'text-amber-900/70' }){
   return (
-    <div className="text-center text-xs text-amber-900/70 leading-5">
+    <div className={`text-center text-xs ${textColor} leading-5`}>
       <div>© 2025 SlimmeGast.ai All rights reserved.</div>
-      <div className="mt-2">Uitschrijven | Privacy | Informatie</div>
+      <div className="mt-2">
+        <button 
+          onClick={() => onLinkClick?.('uitschrijven')}
+          className="hover:underline cursor-pointer"
+        >
+          {lang === 'en' ? 'Unsubscribe' : 'Uitschrijven'}
+        </button>
+        {' | '}
+        <button 
+          onClick={() => onLinkClick?.('privacy')}
+          className="hover:underline cursor-pointer"
+        >
+          {lang === 'en' ? 'Privacy' : 'Privacy'}
+        </button>
+        {' | '}
+        <button 
+          onClick={() => onLinkClick?.('informatie')}
+          className="hover:underline cursor-pointer"
+        >
+          {lang === 'en' ? 'Information' : 'Informatie'}
+        </button>
+      </div>
     </div>
   );
 }
 
-function FixedFooter({ lang }){
+function FixedFooter({ lang, onLinkClick }){
   return (
     <div className="fixed bottom-3 left-1/2 -translate-x-1/2 w-[min(92%,420px)] pointer-events-none z-40">
       <div className="pointer-events-auto">
         <div className="w-full border-t border-amber-900/20" />
-        <div className="pt-2"><FooterBlock lang={lang} /></div>
+        <div className="pt-2"><FooterBlock lang={lang} onLinkClick={onLinkClick} /></div>
       </div>
     </div>
   );
@@ -1001,6 +1051,93 @@ function ToastBar({ open, text, onClose }){
   );
 }
 
+// Info Modal for footer links (Uitschrijven, Privacy, Informatie)
+function InfoModal({ isOpen, onClose, type, lang }) {
+  if (!isOpen) return null;
+  
+  const content = {
+    uitschrijven: {
+      title: lang === 'en' ? 'Unsubscribe' : 'Uitschrijven',
+      text: lang === 'en' 
+        ? `Have you signed up for our <strong>WhatsApp-updates?</strong>
+
+We send you an occasional message about new dishes, fun specials and cozy events at 't Tolhuis.
+
+Don't want to receive messages anymore? It's no problem: just send <strong>STOP</strong> via WhatsApp and you will be unsubscribed immediately.`
+        : `Heb je je aangemeld voor onze <strong>WhatsApp-updates?</strong>
+
+We sturen je af en toe een bericht over nieuwe gerechten, leuke specials en gezellige events bij 't Tolhuis.
+
+Wil je geen berichten meer ontvangen? Dat is geen probleem: stuur gewoon <strong>STOP</strong> via WhatsApp en je wordt direct uitgeschreven.`
+    },
+    privacy: {
+      title: lang === 'en' ? 'Privacy' : 'Privacy',
+      text: lang === 'en'
+        ? `At 't Tolhuis, we value trust.
+
+We handle your data with care and use it solely to inform you about our own dishes, actions and events.
+
+Your data is never shared, sold or passed on to third parties.
+
+This way your privacy remains in good hands with us.`
+        : `Bij 't Tolhuis vinden we vertrouwen belangrijk.
+
+We gaan zorgvuldig om met jouw gegevens en gebruiken deze uitsluitend om je te informeren over onze eigen gerechten, acties en evenementen.
+
+Jouw gegevens worden nooit gedeeld, verkocht of doorgegeven aan derden.
+
+Zo blijft jouw privacy bij ons in goede handen.`
+    },
+    informatie: {
+      title: lang === 'en' ? 'Information' : 'Informatie',
+      text: lang === 'en'
+        ? `This webapp has been developed by <strong>SlimmeGast.ai</strong>, specifically for 't Tolhuis.
+
+The app helps guests find dishes faster that match their taste, preferences and moments of the day. By converting data into experience, each visit becomes a bit smarter - and especially more flavorful.
+
+Curious what <strong>SlimmeGast.ai</strong> can do for your business? Send us a WhatsApp message with <strong>"Coffee?" via +31 (0)6 510 696 67.</strong>`
+        : `Deze webapp is ontwikkeld door <strong>SlimmeGast.ai</strong>, speciaal voor 't Tolhuis.
+
+De app helpt gasten om sneller gerechten te vinden die passen bij hun smaak, voorkeuren en momenten van de dag. Door data om te zetten in beleving wordt elk bezoek nét een beetje slimmer - en vooral smaakvoller.
+
+Benieuwd wat <strong>SlimmeGast.ai</strong> voor jouw bedrijf kan doen? Stuur ons een WhatsApp-bericht met <strong>"Bakkie doen?" via +31 (0)6 510 696 67.</strong>`
+    }
+  };
+  
+  const info = content[type] || content.informatie;
+  
+  return (
+    <div 
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+      onClick={onClose}
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+    >
+      <div 
+        className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="sticky top-0 bg-amber-700 text-white px-6 py-4 rounded-t-2xl flex items-center justify-between">
+          <h2 className="text-xl font-serif font-medium">{info.title}</h2>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center text-white hover:bg-amber-800 rounded-full transition-colors"
+            aria-label={lang === 'en' ? 'Close' : 'Sluiten'}
+          >
+            ×
+          </button>
+        </div>
+        
+        {/* Content */}
+        <div 
+          className="px-6 py-6 text-amber-900 leading-relaxed whitespace-pre-line"
+          dangerouslySetInnerHTML={{ __html: info.text.split('\n').join('<br />') }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // WhatsApp Opt-in Subtle Slider (bottom-right)
 function WhatsAppOptInPopup({ isVisible, onClose, onSubmit, data, setData, isSubmitting, lang }) {
   const [isAnimating, setIsAnimating] = useState(false);
@@ -1027,8 +1164,8 @@ function WhatsAppOptInPopup({ isVisible, onClose, onSubmit, data, setData, isSub
         isAnimating ? 'scale-100 translate-y-0 opacity-100' : 'scale-95 translate-y-4 opacity-0'
       }`}
       style={{ backgroundColor: 'rgb(248 242 232 / var(--tw-bg-opacity, 1))' }}>
-        <div className="px-4 py-4 border-b border-amber-200/30 flex items-center justify-between">
-          <div style={{ color: 'rgb(120 53 15 / 0.8)', fontFamily: 'Mill Sorts Goudy, serif', fontSize: '20px', fontWeight: '400' }}>
+        <div className="px-4 pt-4 pb-0 border-b border-amber-200/30 flex items-center justify-between">
+          <div style={{ color: 'rgb(120 53 15 / 0.8)', fontFamily: 'Mill Sorts Goudy, serif', fontSize: '20px', fontWeight: '400', paddingBottom: '0' }}>
             {lang === 'nl' ? 'Blijf op de hoogte via WhatsApp!' : 'Stay updated via WhatsApp!'}
           </div>
           <button onClick={onClose} className="text-amber-600 hover:text-amber-800 text-lg leading-none">×</button>
@@ -1537,6 +1674,9 @@ function App(){
   const [showOptInModal, setShowOptInModal] = useState(false);
   const [optInData, setOptInData] = useState({ name: '', phone: '' });
   const [isSubmittingOptIn, setIsSubmittingOptIn] = useState(false);
+  
+  // Info Modal State (for footer links)
+  const [infoModalType, setInfoModalType] = useState(null); // null, 'uitschrijven', 'privacy', 'informatie'
   const [smartBubblesData, setSmartBubblesData] = useState([]);
   const [pairingData, setPairingData] = useState([]);
   const [menuData, setMenuData] = useState([]); // Menu data uit Google Sheets
@@ -2885,25 +3025,81 @@ function App(){
     <div className="min-h-[100dvh] bg-[#F3E8D2] text-amber-950 selection:bg-amber-700/20 relative" role="application" aria-label="AI Menu App">
       {/* Intro */}
       {step===0 && (
-        <main className="max-w-screen-sm mx-auto px-4 py-4 text-center relative">
+        <main className="relative min-h-[100dvh] w-full overflow-hidden text-center">
+          {/* Video Background */}
+          <video 
+            autoPlay 
+            loop 
+            muted 
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover z-0"
+          >
+            <source src="/output-intro-grain.webm" type="video/webm" />
+            <source src="/output-intro-grain.mov" type="video/quicktime" />
+          </video>
           
-          {/* Language switch in top-right */}
-          <LangSwitchInline lang={lang} onChange={handleLangChange} className="absolute top-4 right-4" />
+          {/* Overlay for better text readability (optional dark overlay) */}
+          <div className="absolute inset-0 bg-black/20 z-[1]" />
           
-          <BrandHeader showIntroImage={true} />
-          
-          {/* Welcome Section - boven de foto */}
-          <div className="mt-6 mb-4">
-            <h1 className="text-4xl sm:text-5xl font-serif font-medium text-[rgb(120_53_15/var(--tw-text-opacity,1))] mb-6">
-              {t.intro}
-            </h1>
+          {/* Content */}
+          <div className="relative z-[2] flex flex-col min-h-[100dvh] px-4 py-8">
+            {/* Language switch in top-right - white variant for video background */}
+            <div className="absolute top-4 right-4 z-[3] flex items-center gap-1 bg-white/80 backdrop-blur px-2 py-1 rounded-full border border-white/30 shadow-lg">
+              <button 
+                aria-label="Nederlands" 
+                className={`px-2 py-1 rounded-full text-xs ${lang==='nl'? 'bg-amber-700 text-white' : 'text-gray-700'}`} 
+                onClick={()=>handleLangChange('nl')}
+              >
+                🇳🇱 {i18n.nl.langShort}
+              </button>
+              <button 
+                aria-label="English" 
+                className={`px-2 py-1 rounded-full text-xs ${lang==='en'? 'bg-amber-700 text-white' : 'text-gray-700'}`} 
+                onClick={()=>handleLangChange('en')}
+              >
+                🇬🇧 {i18n.en.langShort}
+              </button>
+            </div>
+            
+            {/* Logo - wit */}
+            <div className="mt-12 mb-8 flex justify-center">
+              <img 
+                src="/logo-cafe-t-tolhuis-wit.png" 
+                alt="'t Tolhuis Logo" 
+                className="h-16 sm:h-20 w-auto object-contain"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            </div>
+            
+            {/* Welcome Text - wit */}
+            <div className="mt-6 mb-4">
+              <h1 className="text-4xl sm:text-5xl font-serif font-medium text-white mb-6">
+                {t.intro}
+              </h1>
+            </div>
+            
+            {/* Quotes - wit */}
+            <div className="mt-8 mb-8">
+              <RotatingQuoteWhite large lang={lang} />
+            </div>
+            
+            {/* Button */}
+            <div className="mt-auto mb-8" style={{paddingTop: '1rem', paddingBottom: '1rem'}}>
+              <Button onClick={()=>setStep(1)}>{t.seeMenu}</Button>
+            </div>
+            
+            {/* Footer - wit */}
+            <div className="mt-auto pt-4 pb-6">
+              <div className="w-full border-t border-white/30 mb-3" />
+              <FooterBlock 
+                lang={lang} 
+                onLinkClick={setInfoModalType}
+                textColor="text-white/90"
+              />
+            </div>
           </div>
-          
-          <div className="mt-8"><RotatingQuote large lang={lang} /></div>
-          <div className="mt-0" style={{paddingTop: '1rem', paddingBottom: '1rem', marginBottom: '3rem'}}>
-            <Button onClick={()=>setStep(1)}>{t.seeMenu}</Button>
-          </div>
-          <FixedFooter lang={lang} />
         </main>
       )}
 
@@ -2929,7 +3125,7 @@ function App(){
               <NameStep lang={lang} value={user.name} onChange={(name)=>setUser({...user, name})} />
             </StepCard>
           )}
-          <FixedFooter lang={lang} />
+          <FixedFooter lang={lang} onLinkClick={setInfoModalType} />
         </main>
       )}
 
@@ -3268,12 +3464,20 @@ function App(){
           {/* footer on menu page (non-fixed) */}
           <div className="max-w-screen-sm mx-auto px-4 mt-4 pb-8">
             <div className="w-full border-t border-amber-900/20" />
-            <div className="pt-2"><FooterBlock lang={lang} /></div>
+            <div className="pt-2"><FooterBlock lang={lang} onLinkClick={setInfoModalType} /></div>
           </div>
         </main>
       )}
 
       <ToastBar open={toast.open} text={toast.text} onClose={()=>setToast({open:false, text:''})} />
+      
+      {/* Info Modal for footer links */}
+      <InfoModal 
+        isOpen={infoModalType !== null}
+        onClose={() => setInfoModalType(null)}
+        type={infoModalType}
+        lang={lang}
+      />
       
       {/* WhatsApp Opt-in Subtle Slider */}
       <WhatsAppOptInPopup 
