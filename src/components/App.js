@@ -1141,6 +1141,8 @@ Benieuwd wat <strong>SlimmeGast.ai</strong> voor jouw bedrijf kan doen? Stuur on
 // WhatsApp Opt-in Subtle Slider (bottom-right)
 function WhatsAppOptInPopup({ isVisible, onClose, onSubmit, data, setData, isSubmitting, lang }) {
   const [isAnimating, setIsAnimating] = useState(false);
+  const [nameFocused, setNameFocused] = useState(false);
+  const [phoneFocused, setPhoneFocused] = useState(false);
   
   useEffect(() => {
     if (isVisible) {
@@ -1149,6 +1151,11 @@ function WhatsAppOptInPopup({ isVisible, onClose, onSubmit, data, setData, isSub
   }, [isVisible]);
   
   if (!isVisible) return null;
+
+  const nameLabel = lang === 'nl' ? 'Naam' : 'Name';
+  const phoneLabel = lang === 'nl' ? 'Telefoonnummer' : 'Phone number';
+  const nameHasValue = data.name && data.name.trim().length > 0;
+  const phoneHasValue = data.phone && data.phone.trim().length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1166,47 +1173,71 @@ function WhatsAppOptInPopup({ isVisible, onClose, onSubmit, data, setData, isSub
       style={{ backgroundColor: 'rgb(248 242 232 / var(--tw-bg-opacity, 1))' }}>
         <div className="px-4 pt-4 pb-0 border-b border-amber-200/30 flex items-center justify-between">
           <div style={{ color: 'rgb(120 53 15 / 0.8)', fontFamily: 'Mill Sorts Goudy, serif', fontSize: '20px', fontWeight: '400', paddingBottom: '0' }}>
-            {lang === 'nl' ? 'Blijf op de hoogte via WhatsApp!' : 'Stay updated via WhatsApp!'}
+            {lang === 'nl' ? 'Blijf als eerste op de hoogte via WhatsApp!' : 'Stay first in the loop via WhatsApp!'}
           </div>
           <button onClick={onClose} className="text-amber-600 hover:text-amber-800 text-lg leading-none">×</button>
         </div>
         <div className="px-4 pb-4">
           <div className="mb-4 text-sm leading-relaxed" style={{ color: 'rgb(120 53 15 / 0.8)' }}>
             {lang === 'nl' 
-              ? 'Ontvang updates over onze evenementen, nieuwe gerechten en seizoensspecials. Laat je nummer achter en we sturen je een seintje als er weer iets leuks gebeurt.'
-              : 'Receive updates about our events, new dishes and seasonal specials. Leave your number and we\'ll send you a notification when something fun happens.'
+              ? 'Ontvang als eerste updates over nieuwe gerechten, seizoensspecials & events. Rechtstreeks in je app.'
+              : 'Be the first to receive updates about new dishes, seasonal specials & events. Directly in your app.'
             }
           </div>
           
-          <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} className="space-y-3">
-            {/* Name field */}
-            <div>
-              <label className="block text-xs font-medium mb-1" style={{ color: 'rgb(120 53 15 / 0.8)' }}>
-                {lang === 'nl' ? 'Je naam' : 'Your name'}
+          <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} className="space-y-4">
+            {/* Name field with floating label */}
+            <div className="relative">
+              <label 
+                className={`absolute left-3 transition-all duration-200 pointer-events-none ${
+                  nameFocused || nameHasValue
+                    ? 'top-1 text-xs text-amber-700'
+                    : 'top-1/2 -translate-y-1/2 text-base text-amber-900/60'
+                }`}
+              >
+                {nameLabel}
               </label>
               <input
                 type="text"
                 value={data.name}
                 onChange={(e) => setData({...data, name: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white/80 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200"
-                style={{ color: 'rgb(120 53 15 / 0.8)' }}
+                onFocus={() => setNameFocused(true)}
+                onBlur={() => setNameFocused(false)}
+                className="w-full px-3 pt-5 pb-2 border border-gray-300 rounded-lg bg-white/80 focus:ring-1 focus:ring-amber-600 focus:border-amber-600 transition-all duration-200"
+                style={{ color: 'rgb(120 53 15 / 0.9)' }}
                 required
               />
             </div>
             
-            {/* Phone field */}
-            <div>
-              <label className="block text-xs font-medium mb-1" style={{ color: 'rgb(120 53 15 / 0.8)' }}>
-                {lang === 'nl' ? 'Telefoonnummer' : 'Phone number'}
+            {/* Phone field with floating label */}
+            <div className="relative">
+              <label 
+                className={`absolute left-3 transition-all duration-200 pointer-events-none ${
+                  phoneFocused || phoneHasValue
+                    ? 'top-1 text-xs text-amber-700'
+                    : 'top-1/2 -translate-y-1/2 text-base text-amber-900/60'
+                }`}
+              >
+                {phoneLabel}
               </label>
               <input
                 type="tel"
                 value={data.phone}
                 onChange={(e) => setData({...data, phone: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white/80 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200"
-                style={{ color: 'rgb(120 53 15 / 0.8)' }}
+                onFocus={() => setPhoneFocused(true)}
+                onBlur={() => setPhoneFocused(false)}
+                className="w-full px-3 pt-5 pb-2 border border-gray-300 rounded-lg bg-white/80 focus:ring-1 focus:ring-amber-600 focus:border-amber-600 transition-all duration-200"
+                style={{ color: 'rgb(120 53 15 / 0.9)' }}
                 required
               />
+            </div>
+            
+            {/* Footer note */}
+            <div className="text-xs leading-relaxed" style={{ color: 'rgb(120 53 15 / 0.6)' }}>
+              {lang === 'nl' 
+                ? 'Max. 2 tot 4 berichten per maand. Geen spam, alleen maar updates.'
+                : 'Max. 2 to 4 messages per month. No spam, just updates.'
+              }
             </div>
             
             {/* Submit button */}
@@ -1217,7 +1248,7 @@ function WhatsAppOptInPopup({ isVisible, onClose, onSubmit, data, setData, isSub
             >
               {isSubmitting 
                 ? (lang === 'nl' ? 'Versturen...' : 'Sending...')
-                : (lang === 'nl' ? 'Aanmelden' : 'Subscribe')
+                : (lang === 'nl' ? 'Voeg me toe aan Whatsapp' : 'Add me to WhatsApp')
               }
             </button>
           </form>
@@ -3136,6 +3167,18 @@ function App(){
           {console.log('Rendering step 4 - Menu')}
           
           <Hero>
+            {/* White logo centered in Hero */}
+            <div className="absolute inset-0 flex items-center justify-center z-[1] pointer-events-none">
+              <img 
+                src="/logo-cafe-t-tolhuis-wit.png" 
+                alt="'t Tolhuis Logo" 
+                className="w-auto object-contain drop-shadow-lg"
+                style={{ height: '54px' }}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            </div>
             
             {/* Language switch in hero top-right */}
             <LangSwitchInline 
@@ -3147,10 +3190,9 @@ function App(){
                 setDishPairings({});
                 // Don't clear pairingData to avoid errors
               }} 
-              className="absolute top-3 right-3" 
+              className="absolute top-3 right-3 z-[20]" 
             />
           </Hero>
-          <BrandHeader />
           <div className="font-[ui-serif] text-2xl sm:text-xl text-center mt-4">
             {user.name ? (
               <span>{lang === 'nl' ? `Hi ${user.name}! ${welcomeMessage || 'Fijn dat je er bent!'}` : `Hi ${user.name}! ${welcomeMessage || 'Great to see you!'}`}</span>
