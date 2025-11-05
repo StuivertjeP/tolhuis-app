@@ -78,14 +78,13 @@ Als je niet handmatig wilt kopiëren:
 
 ## 📋 API Key Setup
 
-De OpenAI API key is **al geconfigureerd** in:
+De OpenAI API key moet worden geconfigureerd in je `.env` file:
 - `utils/translateMenu.js` (automatisch script)
 - `utils/translateMenuSimple.js` (simple script)
 
-**Huidige key:**
-```
-REDACTED_API_KEY
-```
+**⚠️ BELANGRIJK:** 
+- Voeg `OPENAI_API_KEY=your_api_key_here` toe aan je `.env` file
+- Deel je API key NOOIT in Git of publieke documentatie!
 
 ## 🧪 Test de Vertaling
 

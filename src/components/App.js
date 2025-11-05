@@ -1173,7 +1173,7 @@ function WhatsAppOptInPopup({ isVisible, onClose, onSubmit, data, setData, isSub
       style={{ backgroundColor: 'rgb(248 242 232 / var(--tw-bg-opacity, 1))' }}>
         <div className="px-4 pt-4 pb-0 border-b border-amber-200/30 flex items-center justify-between">
           <div style={{ color: 'rgb(120 53 15 / 0.8)', fontFamily: 'Mill Sorts Goudy, serif', fontSize: '20px', fontWeight: '400', paddingBottom: '0' }}>
-            {lang === 'nl' ? 'Blijf als eerste op de hoogte via WhatsApp!' : 'Stay first in the loop via WhatsApp!'}
+            {lang === 'nl' ? 'Blijf op de hoogte via WhatsApp!' : 'Stay updated via WhatsApp!'}
           </div>
           <button onClick={onClose} className="text-amber-600 hover:text-amber-800 text-lg leading-none">×</button>
         </div>
@@ -2886,12 +2886,18 @@ function App(){
     // PRIORITEIT 2: Generate with OpenAI API if Sheets description is not available
     console.log(' Generating AI description for pairing:', pairingName);
     
+    const apiKey = process.env.REACT_APP_OPENAI_API_KEY;
+    if (!apiKey) {
+      console.warn('⚠️ OpenAI API key not found, skipping AI generation');
+      return null;
+    }
+    
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer REDACTED_API_KEY`
+          'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
           model: 'gpt-3.5-turbo',

@@ -58,9 +58,11 @@ nano .env
 
 Voeg toe:
 ```env
-REACT_APP_OPENAI_API_KEY=REDACTED_API_KEY
+REACT_APP_OPENAI_API_KEY=your_api_key_here
 REACT_APP_OPENAI_PROXY_URL=/api/openai
 ```
+
+**⚠️ BELANGRIJK:** Vervang `your_api_key_here` met je echte OpenAI API key. Deel deze NOOIT in Git!
 
 ### 5. Build & Run Docker Container
 ```bash

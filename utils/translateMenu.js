@@ -20,15 +20,21 @@ dotenv.config();
 // ---- 🔧 ENVIRONMENT VARIABLES ----
 // Voeg deze regels toe aan je .env file:
 //
-// OPENAI_API_KEY=REDACTED_API_KEY
+// OPENAI_API_KEY=your_api_key_here
 // GOOGLE_SHEETS_ID=1Y2xftXxnFn0DUKr_wXkBb4Vr-0NXrvytlmWpppKLwvo
 // GOOGLE_SERVICE_ACCOUNT_EMAIL=xxx
 // GOOGLE_PRIVATE_KEY="xxx"   <-- Let op: met aanhalingstekens, met \n bij nieuwe regels
 //
 
 const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY || 'REDACTED_API_KEY'
+  apiKey: process.env.OPENAI_API_KEY
 });
+
+if (!process.env.OPENAI_API_KEY) {
+  console.error('❌ ERROR: OPENAI_API_KEY not found in environment variables!');
+  console.error('   Please add OPENAI_API_KEY to your .env file');
+  process.exit(1);
+}
 
 // Google Sheets setup
 const serviceAccountAuth = new JWT({

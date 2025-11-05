@@ -6,10 +6,20 @@
 
 const OpenAI = require("openai").default;
 const https = require("https");
+const dotenv = require("dotenv");
 
-// OpenAI API Key
-const OPENAI_API_KEY = 'REDACTED_API_KEY';
+// Load environment variables
+dotenv.config();
+
+// OpenAI API Key from environment
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const SHEETS_ID = '1Y2xftXxnFn0DUKr_wXkBb4Vr-0NXrvytlmWpppKLwvo';
+
+if (!OPENAI_API_KEY) {
+  console.error('❌ ERROR: OPENAI_API_KEY not found in environment variables!');
+  console.error('   Please add OPENAI_API_KEY=your_key_here to your .env file');
+  process.exit(1);
+}
 
 const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
