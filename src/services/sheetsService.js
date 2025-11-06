@@ -9,7 +9,8 @@ const SHEETS_CONFIG = {
   sheets: {
     menu: 'menu',
     weekmenu: 'weekmenu', 
-    pairings: 'pairings'
+    pairings: 'pairings',
+    feestdagen: 'Feestdagen 2025'
   }
 };
 
@@ -18,6 +19,7 @@ let menuCache = { data: null, timestamp: null, ttl: 30000 };
 let weekmenuCache = { data: null, timestamp: null, ttl: 30000 };
 let pairingCache = { data: null, timestamp: null, ttl: 30000 };
 let periodCache = { data: null, timestamp: null, ttl: 30000 };
+let feestdagenCache = { data: null, timestamp: null, ttl: 30000 };
 
 /**
  * Haalt data op uit Google Sheets (publieke CSV export)
@@ -135,7 +137,7 @@ function mapSheetRowToPairing(row, index) {
   return {
     dish_id: dish_id,
     venue: venue || 'tolhuis',
-    suggestion: suggestion, // Button tekst (NL) - bijv. "Glas Merlot + ‚¬5,95"
+    suggestion: suggestion, // Button tekst (NL) - bijv. "Glas Merlot + ï¿½ï¿½5,95"
     suggestion_en: suggestion_en || suggestion, // Button tekst (EN) - fallback naar NL
     description: description || '', // Toaster tekst (NL) - laat leeg voor AI generation
     description_en: description_en || '', // Toaster tekst (EN) - laat leeg voor AI generation
@@ -200,10 +202,58 @@ async function getMenuData(forceRefresh = false) {
 }
 
 /**
+ * Haalt feestdagen data op uit Google Sheets
+ */
+async function getFeestdagenData(forceRefresh = false) {
+  console.log('ðŸŽ„ getFeestdagenData function called - fetching from Google Sheets');
+  
+  if (!forceRefresh && feestdagenCache.data && feestdagenCache.timestamp) {
+    const now = Date.now();
+    if (now - feestdagenCache.timestamp < feestdagenCache.ttl) {
+      console.log(' Using cached feestdagen data:', feestdagenCache.data.length, 'items');
+      return feestdagenCache.data;
+    }
+  }
+
+  try {
+    const rows = await fetchSheetData(SHEETS_CONFIG.sheets.feestdagen);
+    console.log('ðŸŽ„ RAW FEESTDAGEN ROWS from Sheets:', rows.slice(0, 3));
+    
+    const feestdagenItems = rows
+      .map((row, index) => {
+        const mapped = mapSheetRowToMenuItem(row, index);
+        if (mapped && index < 5) {
+          console.log(`ðŸŽ„ Mapped feestdagen item ${index}:`, {
+            title: mapped.title,
+            category: mapped.category,
+            section: mapped.section
+          });
+        }
+        return mapped;
+      })
+      .filter(item => item && item.active);
+    
+    feestdagenCache.data = feestdagenItems;
+    feestdagenCache.timestamp = Date.now();
+    console.log('ðŸŽ„ Updated feestdagen cache with Sheets data:', feestdagenItems.length, 'items');
+    return feestdagenItems;
+  } catch (error) {
+    console.error('Error fetching feestdagen data:', error);
+    return feestdagenCache.data || [];
+  }
+}
+
+function clearFeestdagenCache() {
+  feestdagenCache.data = null;
+  feestdagenCache.timestamp = null;
+  console.log('ðŸŽ„ Feestdagen cache cleared');
+}
+
+/**
  * Haalt weekmenu data op uit Google Sheets
  */
 async function getWeekmenuData() {
-  console.log('Š getWeekmenuData function called - fetching from Google Sheets');
+  console.log('ï¿½ getWeekmenuData function called - fetching from Google Sheets');
   
   if (weekmenuCache.data && weekmenuCache.timestamp) {
     const now = Date.now();
@@ -214,13 +264,13 @@ async function getWeekmenuData() {
 
   try {
     const rows = await fetchSheetData(SHEETS_CONFIG.sheets.weekmenu);
-    console.log('Š RAW WEEKMENU ROWS from Sheets:', rows.slice(0, 3)); // Debug: show first 3 rows
+    console.log('ï¿½ RAW WEEKMENU ROWS from Sheets:', rows.slice(0, 3)); // Debug: show first 3 rows
     
     const weekmenuItems = rows
       .map((row, index) => {
         const mapped = mapSheetRowToMenuItem(row, index);
         if (mapped && index < 5) {
-          console.log(`Š Mapped weekmenu item ${index}:`, {
+          console.log(`ï¿½ Mapped weekmenu item ${index}:`, {
             title: mapped.title,
             title_en: mapped.title_en,
             description: mapped.description?.substring(0, 50),
@@ -233,8 +283,8 @@ async function getWeekmenuData() {
     
       weekmenuCache.data = weekmenuItems;
       weekmenuCache.timestamp = Date.now();
-    console.log('Š Updated weekmenu cache with Sheets data:', weekmenuItems.length, 'items');
-    console.log('Š First weekmenu item with translations:', weekmenuItems[0]);
+    console.log('ï¿½ Updated weekmenu cache with Sheets data:', weekmenuItems.length, 'items');
+    console.log('ï¿½ First weekmenu item with translations:', weekmenuItems[0]);
       return weekmenuItems;
   } catch (error) {
     console.error('Error fetching weekmenu data:', error);
@@ -251,7 +301,7 @@ async function getPairingData(forceRefresh = false) {
   if (!forceRefresh && pairingCache.data && pairingCache.timestamp) {
     const now = Date.now();
     if (now - pairingCache.timestamp < pairingCache.ttl) {
-      console.log('· Using cached pairing data:', pairingCache.data.length, 'items');
+      console.log('ï¿½ Using cached pairing data:', pairingCache.data.length, 'items');
       return pairingCache.data;
     }
   }
@@ -260,13 +310,13 @@ async function getPairingData(forceRefresh = false) {
     console.log(' Fetching pairings from sheet:', SHEETS_CONFIG.sheets.pairings);
     const rows = await fetchSheetData(SHEETS_CONFIG.sheets.pairings);
     console.log(' RAW PAIRING ROWS from Sheets:', rows.length, 'rows');
-    console.log('· First 3 rows:', rows.slice(0, 3)); // Debug: show first 3 rows
+    console.log('ï¿½ First 3 rows:', rows.slice(0, 3)); // Debug: show first 3 rows
     
     const pairingItems = rows
       .map((row, index) => {
         const mapped = mapSheetRowToPairing(row, index);
         if (mapped && index < 5) {
-          console.log(`· Mapped pairing ${index}:`, {
+          console.log(`ï¿½ Mapped pairing ${index}:`, {
             suggestion: mapped.suggestion,
             suggestion_en: mapped.suggestion_en,
             description: mapped.description,
@@ -279,8 +329,8 @@ async function getPairingData(forceRefresh = false) {
     
     pairingCache.data = pairingItems;
     pairingCache.timestamp = Date.now();
-    console.log('· Updated pairing cache with Sheets data:', pairingItems.length, 'items');
-    console.log('· First pairing item with translations:', pairingItems[0]);
+    console.log('ï¿½ Updated pairing cache with Sheets data:', pairingItems.length, 'items');
+    console.log('ï¿½ First pairing item with translations:', pairingItems[0]);
     return pairingItems;
   } catch (error) {
     console.error('Error fetching pairing data:', error);
@@ -369,20 +419,20 @@ async function generateAIPairings(dish, user, lang = 'nl', pairingData = []) {
     
     if (isTasteMatch) {
       let price = 5.95;
-        const priceMatch = pairing.suggestion.match(/\+‚¬?([\d,]+)/);
+        const priceMatch = pairing.suggestion.match(/\+ï¿½ï¿½?([\d,]+)/);
         if (priceMatch) {
           price = parseFloat(priceMatch[1].replace(',', '.'));
         }
         
-      const nameWithoutPrice = pairing.suggestion.replace(/\s*\+‚¬?[\d,\.]+.*$/, '');
-      const nameWithoutPrice_en = (pairing.suggestion_en || pairing.suggestion).replace(/\s*\+‚¬?[\d,\.]+.*$/, '');
+      const nameWithoutPrice = pairing.suggestion.replace(/\s*\+ï¿½ï¿½?[\d,\.]+.*$/, '');
+      const nameWithoutPrice_en = (pairing.suggestion_en || pairing.suggestion).replace(/\s*\+ï¿½ï¿½?[\d,\.]+.*$/, '');
         
         pairings.push({
           dish_id: dish.id,
           kind: pairing.kind,
         name: nameWithoutPrice, // Dutch name (without price)
         name_en: nameWithoutPrice_en, // English name (without price)
-        suggestion: pairing.suggestion, // Dutch suggestion (with price, e.g. "Glas Merlot + ‚¬5,95")
+        suggestion: pairing.suggestion, // Dutch suggestion (with price, e.g. "Glas Merlot + ï¿½ï¿½5,95")
         suggestion_en: pairing.suggestion_en || pairing.suggestion, // English suggestion (with price)
           price: price,
         description: pairing.description || '', // Dutch description from Sheets
@@ -407,13 +457,13 @@ function clearMenuCache() {
 function clearWeekmenuCache() {
   weekmenuCache.data = null;
   weekmenuCache.timestamp = null;
-  console.log('Š Weekmenu cache cleared');
+  console.log('ï¿½ Weekmenu cache cleared');
 }
 
 function clearPairingCache() {
   pairingCache.data = null;
   pairingCache.timestamp = null;
-  console.log('· Pairing cache cleared');
+  console.log('ï¿½ Pairing cache cleared');
 }
 
 function clearPeriodCache() {
@@ -429,7 +479,7 @@ function clearPeriodCache() {
  * Deze functie is een placeholder voor toekomstige implementatie.
  */
 async function saveAIDescriptionToSheet(dish_id, suggestion, aiDescription, lang = 'nl') {
-  console.log(`¾ [CACHE] Saving AI description for ${dish_id} (${lang}):`, aiDescription);
+  console.log(`ï¿½ [CACHE] Saving AI description for ${dish_id} (${lang}):`, aiDescription);
   
   // TODO: Implementeer Google Sheets API write
   // Voor nu slaan we alleen op in memory cache
@@ -450,7 +500,7 @@ async function saveAIDescriptionToSheet(dish_id, suggestion, aiDescription, lang
     } else {
         pairingCache.data[pairingIndex].ai_description_en = aiDescription;
       }
-      console.log(`¾ [CACHE] Updated pairing cache for ${dish_id}`);
+      console.log(`ï¿½ [CACHE] Updated pairing cache for ${dish_id}`);
     }
   }
   
@@ -692,6 +742,8 @@ module.exports = {
   clearPairingCache,
   getMenuData,
   clearMenuCache,
+  getFeestdagenData,
+  clearFeestdagenCache,
   generateAIPairings,
   saveAIDescriptionToSheet,
   testSheetsConnection,

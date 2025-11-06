@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { i18n, quotes, demo, focusRing, recordEvent, sentenceCase, tasteToCode, getContextSignals, gpt5RankDishes, pickPairings, gpt5PairingCopy, generateChefRecommendationTitle } from "../App.js";
 import { translateDish } from "../utils/translationService.js";
-import { getCurrentPeriod, clearPeriodCache, getWeekmenuData, clearWeekmenuCache, getPairingData, clearPairingCache, getMenuData, clearMenuCache, generateAIPairings, getSmartBubblesData, saveOptInData } from "../services/sheetsService.js";
+import { getCurrentPeriod, clearPeriodCache, getWeekmenuData, clearWeekmenuCache, getPairingData, clearPairingCache, getMenuData, clearMenuCache, getFeestdagenData, clearFeestdagenCache, generateAIPairings, getSmartBubblesData, saveOptInData } from "../services/sheetsService.js";
 import { generatePairingDescription, generateContextHint, generateSmartUpsell } from "../utils/openaiProxy.js";
 import { getCurrentWeather, getWeatherCategory, getCurrentSeason, getTimeOfDay, getWelcomeMessage } from "../services/weatherService.js";
 
@@ -52,17 +52,42 @@ function useImageCandidate(cands) {
  * Header / Hero / Language
  ********************/
 const HERO_CANDIDATES = ['header-tolhuis.jpg','/header-tolhuis.jpg'];
+const FEESTDAGEN_HERO_CANDIDATES = ['header-tolhuis-feestdagen.jpg','/header-tolhuis-feestdagen.jpg'];
 
-function Hero({ src, alt = "Cafe 't Tolhuis", children }){
+function Hero({ src, alt = "Cafe 't Tolhuis", children, isFeestdagen = false }){
   const [hero, setHero] = useState(src || null);
   useEffect(()=>{
     if (hero) return; let cancelled=false;
+    
+    // Als feestdagen mode, gebruik direct de feestdagen header (negeer localStorage cache)
+    if (isFeestdagen) {
+      const feestdagenUrl = '/header-tolhuis-feestdagen.jpg';
+      const img = new Image();
+      img.onload = () => { 
+        if (!cancelled) {
+          setHero(feestdagenUrl);
+          console.log('🎄 Feestdagen header geladen:', feestdagenUrl);
+        }
+      };
+      img.onerror = () => {
+        console.warn('🎄 Feestdagen header niet gevonden, fallback naar normale header');
+        // Fallback naar normale header als feestdagen header niet bestaat
+        const qs = (()=>{ try{ return new URLSearchParams(window.location.search).get('hero'); }catch{return null;} })();
+        const candidates = [qs, ...HERO_CANDIDATES].filter(Boolean);
+        const tryNext=(i)=>{ if(cancelled||i>=candidates.length){ setHero(null); return; } const url=candidates[i]; const img2=new Image(); img2.onload=()=>{ if(!cancelled){ setHero(url); } }; img2.onerror=()=>tryNext(i+1); img2.src=url; };
+        tryNext(0);
+      };
+      img.src = feestdagenUrl;
+      return () => { cancelled = true; };
+    }
+    
+    // Normale flow voor niet-feestdagen
     const qs = (()=>{ try{ return new URLSearchParams(window.location.search).get('hero'); }catch{return null;} })();
     const ls = (()=>{ try{ return localStorage.getItem('hero_url'); }catch{return null;} })();
     const candidates = [qs, ls, ...HERO_CANDIDATES].filter(Boolean);
     const tryNext=(i)=>{ if(cancelled||i>=candidates.length){ setHero(null); return; } const url=candidates[i]; const img=new Image(); img.onload=()=>{ if(!cancelled){ setHero(url); try{ localStorage.setItem('hero_url',url);}catch{} } }; img.onerror=()=>tryNext(i+1); img.src=url; };
     tryNext(0); return ()=>{cancelled=true};
-  },[hero]);
+  },[hero, isFeestdagen]);
   const style = hero ? { backgroundImage: `url('${hero}')` } : { backgroundImage: 'linear-gradient(135deg, #d6b98a, #f3e8d2)' };
   return (
     <div className="relative -mx-4 -mt-4 mb-4 h-[150px] sm:h-[170px] overflow-hidden rounded-b-3xl shadow-[0_10px_28px_rgba(0,0,0,0.18)]" role="img" aria-label={alt}>
@@ -86,6 +111,24 @@ function LangSwitchInline({ lang, onChange, className='' }){
        <button aria-label="Nederlands" className={`px-2 py-1 rounded-full text-xs ${lang==='nl'? 'bg-amber-700 text-white' : 'text-amber-900'}`} onClick={()=>handleLangChange('nl')}>🇳🇱 {i18n.nl.langShort}</button>
        <button aria-label="English" className={`px-2 py-1 rounded-full text-xs ${lang==='en'? 'bg-amber-700 text-white' : 'text-amber-900'}`} onClick={()=>handleLangChange('en')}>🇬🇧 {i18n.en.langShort}</button>
     </div>
+  );
+}
+
+function FeestdagenButton({ isFeestdagenMode, onClick, lang, className='' }){
+  return (
+    <button 
+      onClick={onClick}
+      className={`flex items-center gap-1 px-3 py-1.5 rounded-full shadow-sm ${isFeestdagenMode ? 'text-white border' : 'bg-green-600 text-white border border-green-700'} ${className}`}
+      style={isFeestdagenMode ? { backgroundColor: '#B45309', borderColor: '#B45309' } : {}}
+      aria-label={isFeestdagenMode ? (lang === 'nl' ? 'Ga naar volledige kaart' : 'Go to full menu') : (lang === 'nl' ? 'Bekijk Feestdagen aanbod' : 'View Holiday menu')}
+    >
+      <span className="text-xs font-medium">
+        {isFeestdagenMode 
+          ? (lang === 'nl' ? 'Volledige kaart' : 'Full menu')
+          : (<>🎄 {lang === 'nl' ? 'Feestdagen 2025' : 'Holidays 2025'}</>)
+        }
+      </span>
+    </button>
   );
 }
 
@@ -392,7 +435,7 @@ function isDeHoopDish(dish) {
   return false;
 }
 
-function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingText, setCurrentPairing, setShowPairingCard, showPairingCard, weather, weatherCategory, preloadedTranslations, pairingTranslations }){
+function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingText, setCurrentPairing, setShowPairingCard, showPairingCard, weather, weatherCategory, preloadedTranslations, pairingTranslations, hidePrice = false }){
   
   const [currentPairing, setLocalCurrentPairing] = useState(null);
   const [aiTranslation, setAiTranslation] = useState(null);
@@ -699,7 +742,7 @@ function DishCard({ venue, dish, pairings, onShowPairing, lang, generatePairingT
             <div className="flex-1 min-w-0 pr-2">
           <h3 className="text-[16px] sm:text-[18px] font-semibold leading-tight break-words">{displayName}</h3>
           <p className="text-xs sm:text-sm text-amber-900/80 mt-0.5">
-             {translateCategory(dish.subtitle || 'Gerecht')} • {venue.currency}{Number(dish.price).toFixed(2)}
+             {translateCategory(dish.subtitle || 'Gerecht')}{!hidePrice && ` • ${venue.currency}${Number(dish.price).toFixed(2)}`}
           </p>
             </div>
           </div>
@@ -1621,6 +1664,8 @@ function App(){
   const [toast, setToast] = useState({ open:false, text:'' });
   const [showPairingCard, setShowPairingCard] = useState(false);
   const [currentPairing, setCurrentPairing] = useState(null);
+  const [isFeestdagenMode, setIsFeestdagenMode] = useState(false);
+  const [feestdagenData, setFeestdagenData] = useState([]);
   
   // WhatsApp teaser: show small button after 15s on intro (step 0)
   const [showOptInTeaser, setShowOptInTeaser] = useState(false);
@@ -2628,9 +2673,45 @@ function App(){
     loadMenu();
   }, []); // Load menu data once on mount
 
+  // Haal feestdagen data op uit Google Sheets wanneer feestdagen mode actief is
+  useEffect(() => {
+    if (isFeestdagenMode) {
+      console.log('🎄 useEffect voor feestdagen data wordt aangeroepen!');
+      
+      const loadFeestdagen = async () => {
+        try {
+          console.log('🎄 Loading feestdagen data...');
+          clearFeestdagenCache();
+          const feestdagen = await getFeestdagenData(true); // Force refresh
+          console.log('🎄 getFeestdagenData returned:', feestdagen);
+          setFeestdagenData(feestdagen);
+          console.log('🎄 Feestdagen data loaded:', feestdagen.length, 'items');
+        } catch (error) {
+          console.warn('Kon feestdagen data niet laden uit Sheets:', error);
+          setFeestdagenData([]);
+        }
+      };
+      
+      loadFeestdagen();
+    }
+  }, [isFeestdagenMode]);
+
 
   const venue = demo.venue;
   const context = useMemo(()=>getContextSignals(), [step]);
+  
+  // Filter feestdagen data op categorieën (kolom B = section)
+  const feestdagenBrunch = useMemo(() => {
+    return feestdagenData.filter(item => 
+      item.section && item.section.toLowerCase().includes('kerstbrunch')
+    );
+  }, [feestdagenData]);
+  
+  const feestdagenDiner = useMemo(() => {
+    return feestdagenData.filter(item => 
+      item.section && item.section.toLowerCase().includes('kerstdiner')
+    );
+  }, [feestdagenData]);
   
   // Filter dishes based on menu filters
   const filteredDishes = useMemo(() => {
@@ -3168,7 +3249,7 @@ function App(){
 
 
       {/* Menu */}
-      {step===4 && (
+      {step===4 && !isFeestdagenMode && (
         <main className="max-w-screen-sm mx-auto px-4 py-4 pb-40">
           {console.log('Rendering step 4 - Menu')}
           
@@ -3197,6 +3278,14 @@ function App(){
                 // Don't clear pairingData to avoid errors
               }} 
               className="absolute top-3 right-3 z-[20]" 
+            />
+            
+            {/* Feestdagen button in hero top-left */}
+            <FeestdagenButton 
+              isFeestdagenMode={isFeestdagenMode}
+              onClick={() => setIsFeestdagenMode(!isFeestdagenMode)}
+              lang={lang}
+              className="absolute top-3 left-3 z-[20]" 
             />
           </Hero>
           <div className="font-[ui-serif] text-2xl sm:text-xl text-center mt-4">
@@ -3375,6 +3464,23 @@ function App(){
                     {lang === 'nl' ? 'Borrel' : 'Snacks'}
                   </div>
                 </button>
+                
+                <button
+                  onClick={() => {
+                    setIsFeestdagenMode(true);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className={`px-3 py-2 text-sm rounded-full transition-colors ${focusRing} ${
+                    isFeestdagenMode
+                      ? 'bg-green-700 text-white' 
+                      : 'bg-green-600 text-white border border-green-700 hover:bg-green-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span>🎄</span>
+                    {lang === 'nl' ? 'Feestdagen 2025' : 'Holidays 2025'}
+                  </div>
+                </button>
               </div>
               
             </div>
@@ -3517,6 +3623,263 @@ function App(){
         </main>
       )}
 
+      {/* Feestdagen Menu */}
+      {step===4 && isFeestdagenMode && (
+        <main className="max-w-screen-sm mx-auto px-4 py-4 pb-40">
+          {console.log('🎄 Rendering Feestdagen Menu')}
+          
+          <Hero isFeestdagen={true}>
+            {/* White logo centered in Hero */}
+            <div className="absolute inset-0 flex items-center justify-center z-[1] pointer-events-none">
+              <img 
+                src="/logo-cafe-t-tolhuis-wit.png" 
+                alt="'t Tolhuis Logo" 
+                className="w-auto object-contain drop-shadow-lg"
+                style={{ height: '54px' }}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            </div>
+            
+            {/* Language switch in hero top-right */}
+            <LangSwitchInline 
+              lang={lang} 
+              onChange={(newLang) => {
+                console.log('Language switch clicked:', lang, '�', newLang);
+                setLang(newLang);
+                setDishPairings({});
+              }} 
+              className="absolute top-3 right-3 z-[20]" 
+            />
+            
+            {/* Feestdagen button in hero top-left */}
+            <FeestdagenButton 
+              isFeestdagenMode={isFeestdagenMode}
+              onClick={() => setIsFeestdagenMode(false)}
+              lang={lang}
+              className="absolute top-3 left-3 z-[20]" 
+            />
+          </Hero>
+
+          {/* Intro tekst */}
+          <div className="text-left mt-6 mb-6 px-4">
+            <h1 className="font-['Sorts_Mill_Goudy'] text-3xl sm:text-4xl mb-4 leading-tight text-left" style={{ color: 'rgb(120 53 15 / var(--tw-text-opacity, 1))', marginBottom: '0.5rem' }}>
+              {lang === 'nl' 
+                ? <>De feestdagen vier je<br />natuurlijk in 't Tolhuis.</>
+                : <>Celebrate the holidays<br />at 't Tolhuis.</>
+              }
+            </h1>
+            
+            <p className="text-amber-900/80 text-base leading-relaxed mb-6">
+              {lang === 'nl' 
+                ? "Ook dit jaar hebben we weer iets speciaals voor de feestdagen. Kom genieten van een sfeervolle kerst vol smaak, warmte en gezelligheid."
+                : "This year we have something special again for the holidays. Come enjoy a festive Christmas full of flavor, warmth and coziness."
+              }
+            </p>
+            
+            <div className="my-4 border-t border-amber-900/20"></div>
+            
+            {lang === 'nl' ? (
+              <div className="text-amber-900/80 text-base leading-relaxed max-w-2xl space-y-4">
+                <h3 className="font-['Sorts_Mill_Goudy'] text-xl text-left" style={{ color: 'rgb(120 53 15 / var(--tw-text-opacity, 1))' }}>
+                  Zondag 30 november, van 16 tot 18 uur.
+                </h3>
+                
+                <h2 className="font-['Sorts_Mill_Goudy'] text-2xl mt-6 mb-4 text-left" style={{ color: 'rgb(120 53 15 / var(--tw-text-opacity, 1))' }}>
+                  Het Sinterklaas kinderfeest in 't Tolhuis
+                </h2>
+                
+                <p className="text-left">
+                  Kom je langs? Meld je even bij de bar met hoeveel personen je komt en welke leeftijd je kindjes hebben.
+              
+                  <strong>Voor alle kindjes heeft de sint een cadeautje en wat lekkers meegenomen.</strong>
+                </p>
+                <p className="text-left">
+                  Wil je blijven eten? Maak dan alvast een reservering via <a href="tel:+31356214481" className="text-amber-700 underline">(035) 621 44 81</a> of meld het even bij de bar.
+                </p>
+                {/* Sinterklaas afbeelding - schuin met witte outline */}
+                <div className="my-6 flex justify-center">
+                  <img 
+                    src="/Sinterklaas-2024-tolhuis.jpg" 
+                    alt="Sinterklaas kinderfeest 't Tolhuis"
+                    className="rounded-lg"
+                    style={{
+                      transform: 'rotate(-2deg)',
+                      border: '10px solid white',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                      width: '80%',
+                      height: 'auto'
+                    }}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                </div>
+                
+                
+                <div className="my-4 border-t border-amber-900/20"></div>
+                <h2 className="font-['Sorts_Mill_Goudy'] text-2xl mt-6 mb-4 text-left" style={{ color: 'rgb(120 53 15 / var(--tw-text-opacity, 1))' }}>
+                  Vrijdag 26 december, 2e Kerstdag.
+                </h2>
+                <div className="mt-4 space-y-3 text-left">
+                  <h3 className="font-['Sorts_Mill_Goudy'] text-xl">
+                    Kerstbrunch (Vanaf 12 uur) <br /> </h3>
+                    <span className="text-base font-normal">Laat je verrassen door onze feestelijke gerechten. <a href="/2025-Kerst-Brunch.pdf" target="_blank" rel="noopener noreferrer" className="text-amber-700 underline">Bekijk de kerstbrunch hier</a></span>
+                 
+                  <h3 className="font-['Sorts_Mill_Goudy'] text-xl">
+                    kerstdiner (Vanaf 18 uur.)<br /></h3>
+                    <span className="text-base font-normal">Sluit de feestdagen af met een sfeervol diner vol verrassende smaken. <a href="/2025-Kerst-Diner.pdf" target="_blank" rel="noopener noreferrer" className="text-amber-700 underline">Bekijk het kerstdiner hier</a></span>
+              
+                </div>
+                <h2 className="font-['Sorts_Mill_Goudy'] text-2xl mt-6 mb-2 text-left" style={{ color: 'rgb(120 53 15 / var(--tw-text-opacity, 1))' }}>
+                  Mis deze heerlijke feestdagen niet.
+                </h2>
+                <p className="text-left" style={{ marginTop: 0 }}>
+                  Reserveer je tafel bij de bar of via <a href="tel:+31356214481" className="text-amber-700 underline">(035) 621 44 81</a>.
+                </p>
+              </div>
+            ) : (
+              <div className="text-amber-900/80 text-base leading-relaxed max-w-2xl space-y-4">
+                <h3 className="font-['Sorts_Mill_Goudy'] text-xl text-left" style={{ color: 'rgb(120 53 15 / var(--tw-text-opacity, 1))' }}>
+                  Sunday November 30, from 4 to 6 PM.
+                </h3>
+                
+                <h2 className="font-['Sorts_Mill_Goudy'] text-2xl mt-6 mb-4 text-left" style={{ color: 'rgb(120 53 15 / var(--tw-text-opacity, 1))' }}>
+                  The Sinterklaas children's party at 't Tolhuis
+                </h2>
+                
+                <p className="text-left">
+                  Coming along? Let the bar know how many people you're bringing and what age your children are.
+                </p>
+                
+                <p className="text-left">
+                  Sinterklaas has a gift and something tasty for all the children.
+                </p>
+                
+                {/* Sinterklaas afbeelding - schuin met witte outline */}
+                <div className="my-6 flex justify-center">
+                  <img 
+                    src="/Sinterklaas-2024-tolhuis.jpg" 
+                    alt="Sinterklaas children's party 't Tolhuis"
+                    className="rounded-lg"
+                    style={{
+                      transform: 'rotate(-2deg)',
+                      border: '10px solid white',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                      width: '80%',
+                      height: 'auto'
+                    }}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                </div>
+                
+                <p>
+                  Staying for dinner? Make a reservation via <a href="tel:+31356214481" className="text-amber-700 underline">(035) 621 44 81</a> or mention it at the bar.
+                </p>
+                <div className="my-4 border-t border-amber-900/20"></div>
+                <h2 className="font-['Sorts_Mill_Goudy'] text-2xl mt-6 mb-4 text-left" style={{ color: 'rgb(120 53 15 / var(--tw-text-opacity, 1))' }}>
+                  Friday December 26,<br />Boxing Day.
+                </h2>
+                <div className="mt-4 space-y-3 text-left">
+                  <h3 className="font-['Sorts_Mill_Goudy'] text-xl">
+                    Christmas Brunch (From 12 PM.)<br /></h3>
+                    <span className="text-base font-normal">Be surprised by our festive creations. <a href="/2025-Kerst-Brunch.pdf" target="_blank" rel="noopener noreferrer" className="text-amber-700 underline">View the Christmas brunch here</a></span>
+                  
+                  <h3 className="font-['Sorts_Mill_Goudy'] text-xl">
+                    Christmas Dinner (From 6 PM.)<br /></h3>
+                    <span className="text-base font-normal">End the holidays with a cozy dinner full of delightful flavors. <a href="/2025-Kerst-Diner.pdf" target="_blank" rel="noopener noreferrer" className="text-amber-700 underline">View the Christmas dinner here</a></span>
+                
+                </div>
+                <h2 className="font-['Sorts_Mill_Goudy'] text-2xl mt-6 mb-2 text-left" style={{ color: 'rgb(120 53 15 / var(--tw-text-opacity, 1))' }}>
+                  Don't miss these wonderful holidays.
+                </h2>
+                <p className="text-left" style={{ marginTop: 0 }}>
+                  Reserve your table at the bar or via <a href="tel:+31356214481" className="text-amber-700 underline">(035) 621 44 81</a>.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Kerst Brunch sectie */}
+          {feestdagenBrunch.length > 0 && (
+            <section className="mt-8">
+              <h2 className="font-[ui-serif] text-2xl mb-4" style={{ color: 'rgb(120 53 15 / var(--tw-text-opacity, 1))' }}>
+                {lang === 'nl' ? '🎄 Kerstbrunch' : '🎄 Christmas Brunch'}
+              </h2>
+              <div className="grid gap-4">
+                {feestdagenBrunch.map(dish => (
+                  <DishCardWithPairings 
+                    key={dish.id} 
+                    lang={lang} 
+                    venue={venue} 
+                    dish={dish} 
+                    generatePairingsForDish={generatePairingsForDish} 
+                    generatePairingText={generatePairingText} 
+                    setCurrentPairing={setCurrentPairing} 
+                    setShowPairingCard={setShowPairingCard} 
+                    showPairingCard={showPairingCard} 
+                    onShowPairing={handleShowPairing} 
+                    weather={weather} 
+                    weatherCategory={weatherCategory} 
+                    preloadedTranslations={preloadedTranslations} 
+                    hidePrice={true}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Kerst Diner sectie */}
+          {feestdagenDiner.length > 0 && (
+            <section className="mt-8">
+              <h2 className="font-[ui-serif] text-2xl mb-4" style={{ color: 'rgb(120 53 15 / var(--tw-text-opacity, 1))' }}>
+                {lang === 'nl' ? '🎄 Kerstdiner' : '🎄 Christmas Dinner'}
+              </h2>
+              <div className="grid gap-4">
+                {feestdagenDiner.map(dish => (
+                  <DishCardWithPairings 
+                    key={dish.id} 
+                    lang={lang} 
+                    venue={venue} 
+                    dish={dish} 
+                    generatePairingsForDish={generatePairingsForDish} 
+                    generatePairingText={generatePairingText} 
+                    setCurrentPairing={setCurrentPairing} 
+                    setShowPairingCard={setShowPairingCard} 
+                    showPairingCard={showPairingCard} 
+                    onShowPairing={handleShowPairing} 
+                    weather={weather} 
+                    weatherCategory={weatherCategory} 
+                    preloadedTranslations={preloadedTranslations} 
+                    hidePrice={true}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Terug naar volledige kaart button */}
+          <div className="fixed bottom-5 left-1/2 -translate-x-1/2 w-[min(92%,420px)] mt-8">
+            <button 
+              className={`w-full px-5 py-4 rounded-3xl shadow-[0_10px_30px_rgba(0,0,0,0.2)] text-white ${focusRing}`}
+              style={{ backgroundColor: '#B45309' }}
+              onClick={() => setIsFeestdagenMode(false)}
+            >
+              {lang === 'nl' ? 'Bekijk het hele menu' : 'View full menu'}
+            </button>
+          </div>
+
+          {/* Footer */}
+          <div className="max-w-screen-sm mx-auto px-4 mt-4 pb-8">
+            <div className="w-full border-t border-amber-900/20" />
+            <div className="pt-2"><FooterBlock lang={lang} onLinkClick={setInfoModalType} /></div>
+          </div>
+        </main>
+      )}
+
       <ToastBar open={toast.open} text={toast.text} onClose={()=>setToast({open:false, text:''})} />
       
       {/* Info Modal for footer links */}
@@ -3563,7 +3926,7 @@ function App(){
 }
 
 // Component that handles pairing generation
-function DishCardWithPairings({ venue, dish, onShowPairing, lang, generatePairingsForDish, generatePairingText, setCurrentPairing, setShowPairingCard, showPairingCard, weather, weatherCategory, preloadedTranslations }) {
+function DishCardWithPairings({ venue, dish, onShowPairing, lang, generatePairingsForDish, generatePairingText, setCurrentPairing, setShowPairingCard, showPairingCard, weather, weatherCategory, preloadedTranslations, hidePrice = false }) {
   console.log(' DishCardWithPairings RENDER for dish:', dish.name, 'ID:', dish.id, 'lang:', lang, 'full dish object:', dish);
   const [pairings, setPairings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -3672,6 +4035,7 @@ function DishCardWithPairings({ venue, dish, onShowPairing, lang, generatePairin
              weatherCategory={weatherCategory}
              preloadedTranslations={preloadedTranslations}
              pairingTranslations={pairingTranslations}
+             hidePrice={hidePrice}
            />
          );
   } catch (error) {

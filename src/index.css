@@ -29,6 +29,16 @@ input, select, textarea {
   font-size: 16px !important;
 }
 
+/* Sparkle animation for Feestdagen page */
+@keyframes sparkle {
+  0% {
+    background-position: 0 0, 10px 10px;
+  }
+  100% {
+    background-position: 20px 20px, 30px 30px;
+  }
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
