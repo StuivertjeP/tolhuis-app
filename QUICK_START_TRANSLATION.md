@@ -64,12 +64,12 @@ Als je niet handmatig wilt kopiëren:
    ```
 
 2. **Vul .env in**:
-   ```env
-   OPENAI_API_KEY=sk-proj-xxx
-   GOOGLE_SHEETS_ID=1Y2xftXxnFn0DUKr_wXkBb4Vr-0NXrvytlmWpppKLwvo
-   GOOGLE_SERVICE_ACCOUNT_EMAIL=your-service@xxx.iam.gserviceaccount.com
-   GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nXXX\n-----END PRIVATE KEY-----\n"
-   ```
+```env
+OPENAI_API_KEY=OPENAI_API_KEY
+GOOGLE_SHEETS_ID=1Y2xftXxnFn0DUKr_wXkBb4Vr-0NXrvytlmWpppKLwvo
+GOOGLE_SERVICE_ACCOUNT_EMAIL=your-service@xxx.iam.gserviceaccount.com
+GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nXXX\n-----END PRIVATE KEY-----\n"
+```
 
 3. **Run**:
    ```bash
