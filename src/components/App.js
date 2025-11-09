@@ -2986,8 +2986,8 @@ function App(){
             {
               role: 'system',
               content: lang === 'en' 
-                ? 'You are a sommelier. Create a short, enticing description (max 15 words) explaining why this pairing is perfect.'
-                : 'Je bent een sommelier. Maak een korte, verleidelijke omschrijving (max 15 woorden) waarom deze pairing perfect is.'
+                ? 'You are an experienced sommelier. Write an inviting pairing description in clear, everyday language (12-18 words). Avoid diminutives or overly flowery adjectives; focus on flavour harmony and what guests will taste.'
+                : 'Je bent een ervaren sommelier. Schrijf een uitnodigende pairing-omschrijving in heldere, gewone taal (12-18 woorden). Vermijd verkleinwoorden of te bloemrijke bijvoeglijke naamwoorden; focus op de smaakbalans en wat de gast proeft.'
             },
             {
               role: 'user',
@@ -3014,8 +3014,8 @@ function App(){
       console.error(' Error generating AI description:', error);
       // FALLBACK: Simple generic text
       return lang === 'en'
-        ? `Perfect pairing with ${pairingName} - enhances the flavors beautifully.`
-         : `Prachtige match met ${pairingName} — versterkt de smaken zonder te overheersen.`;
+        ? `A balanced match with ${pairingName} that lifts the flavours without overpowering the dish.`
+        : `Een uitgebalanceerde combinatie met ${pairingName} die het gerecht optilt zonder te overheersen.`;
     }
   };
 
