@@ -21,9 +21,8 @@ scw registry namespace create name=slimmegast
 # Login bij Container Registry
 scw registry login
 
-# Build de image met environment variables
+# Build de image met proxy endpoint
 docker build \
-  --build-arg REACT_APP_OPENAI_API_KEY="your_api_key_here" \
   --build-arg REACT_APP_OPENAI_PROXY_URL="/api/openai" \
   -t rg.nl-ams.scw.cloud/slimmegast/tolhuis-app:latest .
 
@@ -54,7 +53,7 @@ scw container create \
 2. Select "tolhuis-app"
 3. Ga naar "Environment Variables"
 4. Voeg toe:
-   - `REACT_APP_OPENAI_API_KEY` = je OpenAI API key
+   - `OPENAI_API_KEY` = je OpenAI API key
    - `REACT_APP_OPENAI_PROXY_URL` = `/api/openai`
 
 ### 5. Domain Configuration
@@ -113,7 +112,7 @@ jobs:
         run: |
           scw registry login
           docker build \
-            --build-arg REACT_APP_OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+            --build-arg REACT_APP_OPENAI_PROXY_URL=/api/openai \
             -t rg.nl-ams.scw.cloud/slimmegast/tolhuis-app:latest .
           docker push rg.nl-ams.scw.cloud/slimmegast/tolhuis-app:latest
       - name: Deploy

@@ -1,3 +1,5 @@
+import { generateAIDescriptionViaProxy } from "../utils/openaiProxy.js";
+
 /**
  * Context Service
  * Generates contextual information for personalized experiences
@@ -265,41 +267,11 @@ function buildIntroPrompt(context, lang) {
  */
 async function generateAIIntro(prompt, lang) {
   try {
-    const apiKey = process.env.REACT_APP_OPENAI_API_KEY;
+    const aiText = await generateAIDescriptionViaProxy(prompt, lang);
     
-    if (!apiKey) {
+    if (!aiText) {
       return null;
     }
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: `Je bent een vriendelijke restaurant host. Schrijf korte, warme welkomstberichten (max 40 woorden) die contextueel zijn en persoonlijk aanvoelen.`
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: 100,
-        temperature: 0.8,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const aiText = data.choices[0]?.message?.content?.trim();
     
     // Parse AI response (simple parsing)
     const lines = aiText.split('\n').filter(line => line.trim());

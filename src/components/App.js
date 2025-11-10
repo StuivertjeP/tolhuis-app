@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { i18n, quotes, demo, focusRing, recordEvent, sentenceCase, tasteToCode, getContextSignals, gpt5RankDishes, pickPairings, gpt5PairingCopy, generateChefRecommendationTitle } from "../App.js";
 import { translateDish } from "../utils/translationService.js";
 import { getCurrentPeriod, clearPeriodCache, getWeekmenuData, clearWeekmenuCache, getPairingData, clearPairingCache, getMenuData, clearMenuCache, getFeestdagenData, clearFeestdagenCache, generateAIPairings, getSmartBubblesData, saveOptInData } from "../services/sheetsService.js";
-import { generatePairingDescription, generateContextHint, generateSmartUpsell } from "../utils/openaiProxy.js";
+import { generatePairingDescription, generateContextHint, generateSmartUpsell, generateAIDescriptionViaProxy } from "../utils/openaiProxy.js";
 import { getCurrentWeather, getWeatherCategory, getCurrentSeason, getTimeOfDay, getWelcomeMessage } from "../services/weatherService.js";
 
 /********************
@@ -2964,51 +2964,27 @@ function App(){
       return pairing.description;
     }
     
-    // PRIORITEIT 2: Generate with OpenAI API if Sheets description is not available
-    console.log(' Generating AI description for pairing:', pairingName);
-    
-    const apiKey = process.env.REACT_APP_OPENAI_API_KEY;
-    if (!apiKey) {
-      console.warn('⚠️ OpenAI API key not found, skipping AI generation');
-      return null;
-    }
-    
+    // PRIORITEIT 2: Generate via secure proxy if Sheets description is not available
+    console.log(' Generating AI description for pairing via proxy:', pairingName);
+        
     try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [
-            {
-              role: 'system',
-              content: lang === 'en' 
-                ? 'You are an experienced sommelier. Write an inviting pairing description in clear, everyday language (12-18 words). Avoid diminutives or overly flowery adjectives; focus on flavour harmony and what guests will taste.'
-                : 'Je bent een ervaren sommelier. Schrijf een uitnodigende pairing-omschrijving in heldere, gewone taal (12-18 woorden). Vermijd verkleinwoorden of te bloemrijke bijvoeglijke naamwoorden; focus op de smaakbalans en wat de gast proeft.'
-            },
-            {
-              role: 'user',
-              content: lang === 'en'
-                ? `Why is ${pairingName} a perfect pairing?`
-                : `Waarom is ${pairingName} een perfecte pairing?`
-            }
-          ],
-          max_tokens: 40,
-          temperature: 0.7
-        })
-      });
+      const prompt = lang === 'en'
+        ? `Write an inviting pairing description (14-18 words) in clear language.
+           Avoid diminutives and overly flowery adjectives.
+           Focus on taste and why the pairing works.
+           
+           Pairing: ${pairingName}`
+        : `Schrijf een uitnodigende pairing-omschrijving (14-18 woorden) in heldere taal.
+           Vermijd verkleinwoorden en te bloemrijke bijvoeglijke naamwoorden.
+           Focus op smaak en waarom de combinatie goed werkt.
+           
+           Pairing: ${pairingName}`;
       
-      if (response.ok) {
-        const data = await response.json();
-        const aiDescription = data.choices[0].message.content.trim();
+      const aiDescription = await generateAIDescriptionViaProxy(prompt, lang);
+      
+      if (aiDescription) {
         console.log(' AI generated description:', aiDescription);
         return aiDescription;
-      } else {
-        console.error(' API request failed with status:', response.status);
-        throw new Error('API request failed');
       }
     } catch (error) {
       console.error(' Error generating AI description:', error);

@@ -14,9 +14,7 @@ RUN npm ci
 COPY . .
 
 # Build the app (environment variables injected at runtime by Scaleway)
-ARG REACT_APP_OPENAI_API_KEY
 ARG REACT_APP_OPENAI_PROXY_URL
-ENV REACT_APP_OPENAI_API_KEY=$REACT_APP_OPENAI_API_KEY
 ENV REACT_APP_OPENAI_PROXY_URL=$REACT_APP_OPENAI_PROXY_URL
 
 RUN npm run build

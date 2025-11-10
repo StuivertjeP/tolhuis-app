@@ -58,17 +58,16 @@ nano .env
 
 Voeg toe:
 ```env
-REACT_APP_OPENAI_API_KEY=your_api_key_here
+OPENAI_API_KEY=your_api_key_here
 REACT_APP_OPENAI_PROXY_URL=/api/openai
 ```
 
-**⚠️ BELANGRIJK:** Vervang `your_api_key_here` met je echte OpenAI API key. Deel deze NOOIT in Git!
+**⚠️ BELANGRIJK:** Vervang `your_api_key_here` met je echte OpenAI API key. Deel deze NOOIT in Git! Stel **geen** `REACT_APP_OPENAI_API_KEY` in productie in; de frontend gebruikt enkel de proxy.
 
 ### 5. Build & Run Docker Container
 ```bash
-# Build de image met .env variables
-docker build --build-arg REACT_APP_OPENAI_API_KEY="$REACT_APP_OPENAI_API_KEY" \
-  --build-arg REACT_APP_OPENAI_PROXY_URL="/api/openai" \
+# Build de image met proxy endpoint
+docker build --build-arg REACT_APP_OPENAI_PROXY_URL="/api/openai" \
   -t tolhuis-app .
 
 # Run de container

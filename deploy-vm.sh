@@ -36,7 +36,6 @@ fi
 
 echo "🔨 Building Docker image..."
 docker build \
-  --build-arg REACT_APP_OPENAI_API_KEY="$REACT_APP_OPENAI_API_KEY" \
   --build-arg REACT_APP_OPENAI_PROXY_URL="/api/openai" \
   -t tolhuis-app:latest .
 
