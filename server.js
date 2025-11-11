@@ -1,7 +1,7 @@
 const express = require("express");
 const fetch = require("node-fetch");
 const dotenv = require("dotenv");
-dotenv.config();
+dotenv.config({ override: true });
 
 const app = express();
 app.use(express.json());
